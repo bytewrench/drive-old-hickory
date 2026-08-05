@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Drive Old Hickory — Cumberland River Sandbox</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚤</text></svg>" />
+  </head>
+  <body>
+    <canvas id="app"></canvas>
+
+    <!-- ── Loading ─────────────────────────────────────────────── -->
+    <div id="loader">
+      <div class="loader-inner">
+        <h1>DRIVE&nbsp;OLD&nbsp;HICKORY</h1>
+        <p class="sub">Cumberland River · Hunters Point, Wilson County TN</p>
+        <div class="bar"><i id="loadbar"></i></div>
+        <p id="loadmsg">booting physics…</p>
+      </div>
+    </div>
+
+    <!-- ── Garage / start screen ───────────────────────────────── -->
+    <div id="garage" class="hidden">
+      <h1>DRIVE&nbsp;OLD&nbsp;HICKORY</h1>
+      <p class="sub">pick a vessel — swap any time with <b>1&nbsp;2&nbsp;3&nbsp;4</b></p>
+      <div id="garage-cards"></div>
+      <button id="launch">LAUNCH</button>
+      <div class="controls-grid">
+        <div><b>W A S D</b><span>drive / steer</span></div>
+        <div><b>SHIFT</b><span>mega-nitro</span></div>
+        <div><b>MOUSE</b><span>aim turret</span></div>
+        <div><b>CLICK / SPACE</b><span>fire cannon</span></div>
+        <div><b>1 – 4</b><span>swap vessel</span></div>
+        <div><b>R</b><span>back to the ramp</span></div>
+        <div><b>T</b><span>day / synthwave night</span></div>
+        <div><b>C</b><span>camera distance</span></div>
+      </div>
+    </div>
+
+    <!-- ── HUD ─────────────────────────────────────────────────── -->
+    <div id="hud" class="hidden">
+      <div id="hud-topleft">
+        <div id="vessel-name">SPEEDBOAT</div>
+        <div id="vessel-mode">◈ WATER MODE</div>
+      </div>
+
+      <div id="hud-topright">
+        <div class="score-label">SCORE</div>
+        <div id="score">0</div>
+        <div id="combo"></div>
+      </div>
+
+      <div id="hud-bottomleft">
+        <canvas id="minimap" width="180" height="180"></canvas>
+      </div>
+
+      <div id="hud-bottomright">
+        <div id="speedo">
+          <div id="speed-val">0</div>
+          <div class="speed-unit">KM/H</div>
+        </div>
+        <div id="boost-wrap"><i id="boost-bar"></i></div>
+      </div>
+
+      <div id="vessel-strip"></div>
+      <div id="toast"></div>
+      <div id="crosshair"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

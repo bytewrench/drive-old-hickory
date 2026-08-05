@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+*.local
+.DS_Store
+
+# Regenerable terrain sources (npm run fetch-osm && npm run build-terrain).
+# The BAKED output in public/*.bin IS committed — it's the deploy asset.
+tools/dem-cache/
+tools/osm-*.json

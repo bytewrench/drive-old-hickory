@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.vite
+tools/dem-cache
+tools/osm-*.json
+*.local
+.DS_Store
+scratchpad
