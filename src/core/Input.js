@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────────────────────
-// Keyboard + mouse. Exposes a poll-style API (axes for the vehicle
-// controller, edge-triggered `consume` for one-shot actions).
+// Keyboard + mouse + a virtual axis layer driven by MobileControls.
+// Exposes a poll-style API (axes for the vehicle controller,
+// edge-triggered `consume` for one-shot actions).
 // ──────────────────────────────────────────────────────────────
 
 export class Input {
@@ -14,6 +15,15 @@ export class Input {
     this.firing = false;
     this.firePressed = false;
     this.enabled = false;
+
+    /**
+     * Virtual axes written by MobileControls. When `active`, they REPLACE the
+     * keyboard axes (throttle/steer/boost) so a tap-target autopilot and the
+     * slingshot can drive the boat without a keyboard.
+     */
+    this.virtual = { active: false, throttle: 0, steer: 0, boost: false };
+    /** Set by the on-screen fire button; consumed once like a key press. */
+    this.fireQueued = false;
 
     this._onKeyDown = (e) => {
       if (!this.enabled) return;
@@ -30,11 +40,16 @@ export class Input {
       this.ndc.y = -(e.clientY / innerHeight) * 2 + 1;
     };
     this._onDown = (e) => {
-      if (!this.enabled || e.button !== 0) return;
+      // Touch pointers belong to MobileControls (steering + slingshot); only
+      // a real mouse click fires the cannon this way.
+      if (!this.enabled || e.button !== 0 || e.pointerType === 'touch') return;
       this.firing = true;
       this.firePressed = true;
     };
-    this._onUp = (e) => { if (e.button === 0) this.firing = false; };
+    this._onUp = (e) => {
+      if (e.pointerType === 'touch') return;
+      if (e.button === 0) this.firing = false;
+    };
 
     addEventListener('keydown', this._onKeyDown, { passive: false });
     addEventListener('keyup', this._onKeyUp);
@@ -48,15 +63,18 @@ export class Input {
   // ── axes ──────────────────────────────────────────────────
   /** −1 reverse … +1 forward */
   get throttle() {
+    if (this.virtual.active) return this.virtual.throttle;
     return (this.has('KeyW', 'ArrowUp') ? 1 : 0) - (this.has('KeyS', 'ArrowDown') ? 1 : 0);
   }
 
   /** +1 = turn left (positive yaw), −1 = turn right */
   get steer() {
+    if (this.virtual.active) return this.virtual.steer;
     return (this.has('KeyA', 'ArrowLeft') ? 1 : 0) - (this.has('KeyD', 'ArrowRight') ? 1 : 0);
   }
 
   get boost() {
+    if (this.virtual.active && this.virtual.boost) return true;
     return this.down.has('ShiftLeft') || this.down.has('ShiftRight');
   }
 
@@ -79,11 +97,14 @@ export class Input {
   }
 
   consumeFire() {
-    // Space is edge-triggered; the mouse button auto-repeats via `firing`.
+    // Space is edge-triggered; the mouse button auto-repeats via `firing`;
+    // the on-screen FIRE button queues one shot per tap.
     const space = this.consume('Space');
     const click = this.firePressed;
+    const btn = this.fireQueued;
     this.firePressed = false;
-    return space || click || this.firing;
+    this.fireQueued = false;
+    return space || click || btn || this.firing;
   }
 
   endFrame() {

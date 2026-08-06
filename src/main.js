@@ -13,6 +13,7 @@ import { Engine } from './core/Engine.js';
 import { PostFX } from './core/PostFX.js';
 import { Physics } from './core/Physics.js';
 import { Input } from './core/Input.js';
+import { MobileControls } from './core/MobileControls.js';
 import { AudioKit } from './core/Audio.js';
 
 import { Terrain } from './world/Terrain.js';
@@ -81,6 +82,7 @@ async function boot() {
   game.weapons = new Weapons(physics, engine.scene);
 
   game.input = new Input(canvas);
+  game.mobile = new MobileControls(canvas, game.input, engine);
   game.audio = new AudioKit();
   game.hud = new Hud(game.water.heightData, HEIGHT_TEX_RES);
 
@@ -91,6 +93,7 @@ async function boot() {
   spawnVessel(0);
   installCollisionRules();
   buildGarage();
+  buildMobileHud();
 
   await progress(100, 'ready');
   loader.classList.add('fade');
@@ -124,7 +127,45 @@ function spawnVessel(index, keepTransform = true) {
   game.vessel = v;
   game.hud.setVessel(index);
   game.engine.camYaw = v.heading;
+  // The turret vessel gets a prominent fire button; others a smaller one.
+  document.body.classList.toggle('no-turret', VESSELS[index].weapon.type !== 'turret');
   return v;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Wire the on-screen touch buttons and make the vessel pills tappable.
+// ──────────────────────────────────────────────────────────────
+function buildMobileHud() {
+  const fire = document.getElementById('mobile-fire');
+  // Hold-to-fire: keep the queue set while the button is held.
+  let firing = false;
+  const startFire = (e) => { e.preventDefault(); firing = true; game.audio?.start(); };
+  const stopFire = () => { firing = false; };
+  fire.addEventListener('pointerdown', startFire);
+  fire.addEventListener('pointerup', stopFire);
+  fire.addEventListener('pointercancel', stopFire);
+  fire.addEventListener('pointerleave', stopFire);
+  game._holdFire = () => firing;
+
+  document.querySelectorAll('#mobile-actions .mbtn').forEach((btn) => {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const act = btn.dataset.act;
+      if (act === 'reset') { game.vessel?.reset(); game.mobile.target = null; game.hud.toast('BACK AT HUNTERS POINT'); }
+      else if (act === 'night') { game.nightTarget = game.nightTarget > 0.5 ? 0 : 1; }
+      else if (act === 'cam') { game.engine.camDistance = (game.engine.camDistance + 1) % 3; }
+      game.audio?.whoosh();
+    });
+  });
+
+  // Tapping a vessel pill swaps to it (mobile equivalent of keys 1–4).
+  document.querySelectorAll('#vessel-strip .vpill').forEach((pill, i) => {
+    pill.style.pointerEvents = 'auto';
+    pill.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (i !== currentIndex) { spawnVessel(i, true); game.hud.toast(`${VESSELS[i].name.toUpperCase()} DEPLOYED`); }
+    });
+  });
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -226,6 +267,12 @@ function frame() {
   // module and freezes every subsequent frame.
   if (game.running) handleHotkeys(input);
   const v = game.vessel;
+
+  // ── touch controls: write virtual axes + turret aim before physics ──
+  if (game.running && game.mobile.enabled) {
+    game.mobile.update(dt);
+    if (game._holdFire && game._holdFire()) input.fireQueued = true;
+  }
 
   // ── fixed-step physics ──
   accumulator += dt;

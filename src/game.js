@@ -8,6 +8,7 @@ export const game = {
   /** @type {import('./core/Engine.js').Engine|null} */      engine: null,
   /** @type {import('./core/Physics.js').Physics|null} */    physics: null,
   /** @type {import('./core/Input.js').Input|null} */        input: null,
+  /** @type {import('./core/MobileControls.js').MobileControls|null} */ mobile: null,
   /** @type {import('./core/Audio.js').AudioKit|null} */     audio: null,
   /** @type {import('./fx/Particles.js').ParticleFX|null} */ fx: null,
   /** @type {import('./ui/Hud.js').Hud|null} */              hud: null,

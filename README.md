@@ -20,12 +20,18 @@ one, islands and coves included.
 
 | | |
 | --- | --- |
-| Centre | Hunters Point Access Area, 36.29922 N, 86.26471 W |
-| Map | 8 km × 8 km, 1:1, no compression |
-| Navigable channel | **18.07 km** of Cumberland inside the map |
-| Narrowest reach | 120 m wide — no dead ends, verified end to end |
-| Land relief | real, 0 – 92.6 m above pool |
-| Also real | US 231 / Hunters Point Pike, SR 141, Spring Creek, Rocky Creek, the islands |
+| Centre | corridor midpoint (36.2455 N, 86.52 W); dock at Hunters Point |
+| Map | **56 km × 56 km**, 1:1, no compression |
+| Reaches | Hunters Point → **downtown Nashville** (49 km) + Old Hickory Dam |
+| Navigable channel | **152 km** of Cumberland stitched into one centreline |
+| Land relief | real, up to **234 m** above pool (AWS terrarium DEM) |
+| Real structures | **80 bridges** (incl. US-231 by the dock and the I-40 / downtown Nashville spans), 5 dams, 9 marinas |
+| Also real | US 231, Hunters Point Pike, Spring Creek, Stones River, the islands |
+
+You start mid-channel at Hunters Point facing **downstream toward Nashville** —
+follow the buoy trail the whole way, or blast across land anywhere. A buoy is
+dropped every ~920 m along the real centreline, so there's a marked route from
+the dock all the way down.
 
 Hunters Point is a peninsula wrapped by a big horseshoe meander, and that is
 exactly how it plays: the ramp sits at the tip, US 231 runs down the spine, and
@@ -79,7 +85,21 @@ npm run preview
 
 ---
 
-## Controls
+## Controls (touch)
+
+On phones/tablets the game switches to a **tap-target + slingshot** scheme the
+first time you touch the screen:
+
+- **Tap the water** where you want to go — the boat auto-steers and throttles to
+  a reticle there. Tap ahead again to follow the river's bends.
+- **Pull back & release** (slingshot) — drag away from the boat to draw a
+  slingshot band; the arrow points the opposite way (your launch heading).
+  Release to fling the boat that way with a nitro burst, power scaled by pull.
+- **FIRE** button (hold to auto-fire); the Dreadnought's turret auto-aims at
+  your target. Small buttons for reset / day-night / camera; tap the vessel
+  pills to swap boats.
+
+## Controls (keyboard)
 
 | Input | Action |
 | --- | --- |
