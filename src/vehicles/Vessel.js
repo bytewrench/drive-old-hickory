@@ -373,18 +373,42 @@ export class Vessel {
     {
       const wet = this.submerged;
       const grounded = this.wheelContacts > 0 ? 1 : 0;
-      const upK = Math.max(wet * 4.0, grounded * (c.land.uprightK ?? 4.5),
-        this.mode === MODE.AIR ? 3.4 : 0);
+      // Strong self-righting so the vessel is hard to flip and always tries to
+      // sit level in the water. It ramps up sharply as the hull heels past ~45°
+      // (up.y < 0.7) so a near-capsize is caught and pushed back hard, while
+      // gentle lean into a turn is left alone.
+      const heeling = clamp((0.7 - this.up.y) / 0.7, 0, 1);
+      const upK = Math.max(wet * 6.5, grounded * (c.land.uprightK ?? 6.0),
+        this.mode === MODE.AIR ? 4.5 : 0) * (1 + heeling * 2.2);
       this._uprightTorque(m, upK);
 
       // The floor matters: airborne is exactly when a tumble runs away, and a
       // craft that spends time off the surface needs roll bled off in the air.
-      const rollDamp = Math.max(wet * c.drag.roll, grounded * (c.land.rollDamp ?? 9.0), 3.2);
+      const rollDamp = Math.max(wet * c.drag.roll * 1.4, grounded * (c.land.rollDamp ?? 9.0), 4.5);
       this.body.addTorque({
         x: -this.angVel.x * rollDamp * m,
         y: 0,
         z: -this.angVel.z * rollDamp * m,
       }, true);
+
+      // ── weathervane ──
+      // Nose the bow toward the actual direction of travel whenever the vessel
+      // is on a surface (water or wheels/pads) and not being actively steered —
+      // so after a sideways slingshot dash it points where it's going instead
+      // of skating. A damped PD servo (the −angVel term stops it oscillating),
+      // scaled by the hull's yaw inertia (∝ hx²+hz²) so heavy/long boats align
+      // as readily as the little speedboat, and faded out under active helm so
+      // deliberate turns still feel soft.
+      if ((wet > 0.1 || grounded) && this.speed > 3.5) {
+        let dh = Math.atan2(this.vel.x, this.vel.z) - this.heading;
+        while (dh > Math.PI) dh -= Math.PI * 2;
+        while (dh < -Math.PI) dh += Math.PI * 2;
+        const align = (1 - clamp(Math.abs(this.steerCmd), 0, 1)) * clamp(this.speed / 12, 0, 1);
+        const inertia = c.hull.hx * c.hull.hx + c.hull.hz * c.hull.hz;
+        const mul = c.water.weathervane ?? 1;    // per-vessel weight (skatey hover < 1)
+        const torque = (dh - this.angVel.y * 0.5) * 0.6 * mul * inertia * m * align;
+        this.body.addTorque({ x: 0, y: torque, z: 0 }, true);
+      }
     }
 
     // ── rescues ──
@@ -397,16 +421,20 @@ export class Vessel {
       this.reset();
     }
 
-    // Beached on its back somewhere the righting torque can't help: after a few
-    // seconds of going nowhere, flip it upright in place rather than stranding
-    // the player. (`R` does a full respawn; this is the automatic version.)
-    if (this.up.y < 0.15 && this.speed < 2.5) {
+    // Capsize recovery: the strong righting torque handles most heels, but if
+    // the hull is properly on its side/back it gets quickly snapped upright so
+    // a flub costs a moment, not the run. It's fine to SEE the flip briefly —
+    // this only fires once well past 90° of heel (up.y < 0.2) and after a short
+    // grace, whether or not the boat is still sliding.
+    if (this.up.y < 0.2) {
       this.stuckTimer = (this.stuckTimer || 0) + dt;
-      if (this.stuckTimer > 3) {
+      if (this.stuckTimer > 1.1) {
         this.stuckTimer = 0;
+        // Snap level, keep heading, and cancel the tumble.
         this.body.setRotation({ x: 0, y: Math.sin(this.heading / 2), z: 0, w: Math.cos(this.heading / 2) }, true);
-        this.body.setTranslation({ x: this.position.x, y: this.position.y + 2, z: this.position.z }, true);
+        this.body.setTranslation({ x: this.position.x, y: this.position.y + 1.5, z: this.position.z }, true);
         this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        game.fx?.splash(this.position.x, WATER_LEVEL, this.position.z, 1.0);
         game.hud?.toast('RIGHTED');
       }
     } else {

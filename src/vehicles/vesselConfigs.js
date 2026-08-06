@@ -38,7 +38,7 @@ export const VESSELS = [
     helm: { rate: 3.6, centre: 5.0 },
     water: {
       thrust: 26, reverse: 0.42, sternZ: -2.8,
-      rudder: 0.09, turnRate: 0.85, yawServo: 3.4, heel: 0.22, heelServo: 5.0, settle: 7.0,
+      rudder: 0.09, turnRate: 0.85, yawServo: 3.4, heel: 0.22, heelServo: 5.0, settle: 7.0, weathervane: 1.0,
     },
     land: {
       engine: 26, reverse: 0.45, maxSteer: 0.52, grip: 0.30,
@@ -79,7 +79,7 @@ export const VESSELS = [
     helm: { rate: 1.5, centre: 2.2 },
     water: {
       thrust: 14, reverse: 0.40, sternZ: -5.2,
-      rudder: 0.05, turnRate: 0.30, yawServo: 2.6, heel: 0.08, heelServo: 7.0, settle: 4.5,
+      rudder: 0.05, turnRate: 0.30, yawServo: 2.6, heel: 0.08, heelServo: 7.0, settle: 4.5, weathervane: 1.9,
     },
     land: {
       engine: 15, reverse: 0.45, maxSteer: 0.34, grip: 0.44,
@@ -121,7 +121,7 @@ export const VESSELS = [
     helm: { rate: 4.2, centre: 5.5 },
     water: {
       thrust: 15, reverse: 0.50, sternZ: -3.1,
-      rudder: 0.07, turnRate: 0.85, yawServo: 3.4, heel: 0.09, heelServo: 6.5, settle: 4.5,
+      rudder: 0.07, turnRate: 0.85, yawServo: 3.4, heel: 0.09, heelServo: 6.5, settle: 4.5, weathervane: 0.32,
     },
     land: {
       engine: 20, reverse: 0.5, maxSteer: 0.40, grip: 0.30,
@@ -164,7 +164,7 @@ export const VESSELS = [
     helm: { rate: 2.2, centre: 3.2 },
     water: {
       thrust: 17, reverse: 0.42, sternZ: -4.3,
-      rudder: 0.07, turnRate: 0.45, yawServo: 3.0, heel: 0.10, heelServo: 6.0, settle: 5.5,
+      rudder: 0.07, turnRate: 0.45, yawServo: 3.0, heel: 0.10, heelServo: 6.0, settle: 5.5, weathervane: 1.1,
     },
     land: {
       engine: 18, reverse: 0.45, maxSteer: 0.38, grip: 0.38,

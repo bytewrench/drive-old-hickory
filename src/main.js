@@ -281,6 +281,15 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const input = game.input;
 
+  // Paused (route-planning map open): freeze the sim, keep the scene on screen
+  // behind the map overlay, and let ESC/click close it.
+  if (game.paused) {
+    if (input.consume('Escape')) game.hud.closeMap();
+    game.engine.postfx.render();
+    input.endFrame();
+    return;
+  }
+
   // Hotkeys can swap the vessel, which destroys the old rigid body. Read
   // game.vessel only AFTER that, or the rest of the frame would drive a body
   // that no longer exists in the physics world — which panics the Rapier WASM

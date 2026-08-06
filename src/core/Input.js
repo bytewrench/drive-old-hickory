@@ -22,6 +22,9 @@ export class Input {
     this.virtual = { active: false, throttle: 0, steer: 0, boost: false };
     /** Set by the on-screen fire button; consumed once like a key press. */
     this.fireQueued = false;
+    /** While true, the turret aim ignores mouse moves (held during a slingshot
+     *  drag so navigating doesn't swing the turret around). */
+    this.aimLocked = false;
 
     this._onKeyDown = (e) => {
       if (!this.enabled) return;
@@ -33,9 +36,10 @@ export class Input {
     this._onKeyUp = (e) => { this.down.delete(e.code); };
     this._onBlur = () => { this.down.clear(); };
 
-    // The mouse is for navigation (slingshot) and turret aim — never firing.
-    // Firing is its own trigger: SPACE on desktop, the FIRE button on mobile.
+    // The mouse aims the turret — never fires (fire is SPACE / the button).
+    // During a slingshot drag the aim is locked so navigating doesn't swing it.
     this._onMove = (e) => {
+      if (this.aimLocked) return;
       this.ndc.x = (e.clientX / innerWidth) * 2 - 1;
       this.ndc.y = -(e.clientY / innerHeight) * 2 + 1;
     };
@@ -61,7 +65,9 @@ export class Input {
   }
 
   get boost() {
-    if (this.virtual.active && this.virtual.boost) return true;
+    // Virtual boost is NOT gated on virtual.active, so a slingshot dash can add
+    // nitro while you keep steering with the keyboard.
+    if (this.virtual.boost) return true;
     return this.down.has('ShiftLeft') || this.down.has('ShiftRight');
   }
 

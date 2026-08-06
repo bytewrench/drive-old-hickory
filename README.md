@@ -105,7 +105,13 @@ its own trigger, never the navigation pointer**.
 - **Right side** aims the turret. **NITRO** and **FIRE** buttons on the right.
 - Small buttons for reset / day-night / camera; tap the vessel pills to swap.
 
-**Everywhere:** the **SOUND** button (top-left) toggles audio — also `M`.
+**Everywhere:** the **SOUND** button (top-left) toggles audio (also `M`). Click
+the **minimap** to open a zoomable, pannable **route map** (the game pauses) so
+you can plan the run down to Nashville; ESC or CLOSE resumes.
+
+Audio is tuned deep and rumbly with a master low-pass — no harsh, hissy or
+spiky high frequencies (measured 58–100 dB below the rumble), for hearing
+comfort. The vessels are hard to flip and self-right within ~1 s after a flub.
 
 ## Controls (keyboard reference)
 

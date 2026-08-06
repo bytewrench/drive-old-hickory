@@ -29,6 +29,7 @@ export const game = {
   nightTarget: 0,
   score: 0,
   running: false,
+  paused: false,
 };
 
 export function addScore(n, label) {
