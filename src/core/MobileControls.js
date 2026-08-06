@@ -175,13 +175,21 @@ export class MobileControls {
     return hit ? this._v.clone() : null;
   }
 
-  /** Launch direction: from the pulled-back finger toward the boat, on the ground. */
+  /**
+   * Launch direction = opposite the drag, in world space — exactly the arrow
+   * the overlay draws. It's built from the DRAG (start → current), not from the
+   * boat's screen position: anchoring on the boat made the direction flip
+   * whenever the drag didn't start right on the hull, so a pull could fire the
+   * boat the wrong way. Drag-relative is consistent no matter where you grab.
+   */
   _slingWorldDir() {
     const v = game.vessel;
     if (!v) return null;
-    const fg = this._screenToGround(this.sling.cx, this.sling.cy);
-    if (!fg) return null;
-    this._dir.set(v.position.x - fg.x, 0, v.position.z - fg.z);
+    const start = this._screenToGround(this.sling.sx, this.sling.sy);
+    const cur = this._screenToGround(this.sling.cx, this.sling.cy);
+    if (!start || !cur) return null;
+    // pull-back: you drag away from where you want to go, so launch = start−cur.
+    this._dir.set(start.x - cur.x, 0, start.z - cur.z);
     if (this._dir.lengthSq() < 1e-3) this._dir.set(Math.sin(v.heading), 0, Math.cos(v.heading));
     return this._dir.normalize().clone();
   }

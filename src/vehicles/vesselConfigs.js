@@ -21,12 +21,13 @@ export const VESSELS = [
   // ── 1 · SPEEDBOAT ─────────────────────────────────────────
   {
     key: 'speedboat',
-    name: 'Speedboat',
-    blurb: 'Featherweight hull, obscene acceleration, the quickest helm on the river. Throws a rooster tail.',
+    catalog: 'runabout',
+    name: 'Bowrider',
+    blurb: 'Deck boat with an outdrive and no bad habits. Forgiving on the water, clumsy but capable on land.',
     stats: { speed: 1.0, mass: 0.2, guns: 0.2, grip: 0.55 },
-    color: '#ff5d73',
-    accent: '#fff3d6',
-    neon: '#ff2fb9',
+    color: '#b48ee8',
+    accent: '#ff5f6d',
+    neon: '#f2c94c',
 
     hull: { hx: 1.25, hy: 0.55, hz: 3.1 },
     density: 76,          // kg/m³ over a 17 m³ hull box ≈ 1.3 t
@@ -62,12 +63,13 @@ export const VESSELS = [
   // ── 2 · BATTLE BARGE ──────────────────────────────────────
   {
     key: 'barge',
-    name: 'Battle Barge',
-    blurb: 'Ninety tonnes of bad attitude. Broadside cannons, ruinous plow force, answers the helm like a continent.',
+    catalog: 'tug',
+    name: 'Bollard',
+    blurb: 'Displacement hull, fat fenders, more mass than sense. Broadside cannons and a prow that wins any argument it can reach.',
     stats: { speed: 0.45, mass: 1.0, guns: 0.85, grip: 0.9 },
-    color: '#5b6b7d',
-    accent: '#ffd166',
-    neon: '#ffae00',
+    color: '#ff5f6d',
+    accent: '#f2c94c',
+    neon: '#b48ee8',
 
     hull: { hx: 2.9, hy: 1.15, hz: 5.6 },
     density: 380,         // ≈ 57 t of hull …
@@ -103,12 +105,13 @@ export const VESSELS = [
   // ── 3 · HOVER-CRUISER ─────────────────────────────────────
   {
     key: 'hover',
-    name: 'Hover-Cruiser',
-    blurb: 'Rides an air cushion, so water and land are the same thing. Skates everywhere, grips nowhere.',
+    catalog: 'airboat',
+    name: 'Fanjack',
+    blurb: 'Flat-bottom pan and a caged fan. Skims water, mud, grass and parking lots with equal contempt. Grips nowhere.',
     stats: { speed: 0.8, mass: 0.35, guns: 0.35, grip: 0.2 },
-    color: '#4ecdc4',
-    accent: '#ffffff',
-    neon: '#00e5ff',
+    color: '#f2c94c',
+    accent: '#ff5f6d',
+    neon: '#7fd4d4',
 
     hull: { hx: 1.9, hy: 0.7, hz: 3.4 },
     density: 45,          // ≈ 1.6 t
@@ -147,12 +150,13 @@ export const VESSELS = [
   // ── 4 · DREADNOUGHT ───────────────────────────────────────
   {
     key: 'dreadnought',
-    name: 'Dreadnought',
-    blurb: '360° mouse-aimed turret firing explosive shells that rearrange the landscape. Heavy, deliberate, decisive.',
+    catalog: 'hydrofoil',
+    name: 'Skimmer',
+    blurb: 'Two needle hulls on retractable foils, with a 360° mouse-aimed turret bolted amidships. Fast, sharp, decisive.',
     stats: { speed: 0.6, mass: 0.85, guns: 1.0, grip: 0.75 },
-    color: '#3c4a63',
-    accent: '#b388ff',
-    neon: '#b388ff',
+    color: '#ff5f6d',
+    accent: '#7fd4d4',
+    neon: '#b48ee8',
 
     hull: { hx: 2.3, hy: 0.95, hz: 4.7 },
     density: 210,         // ≈ 17 t of hull …

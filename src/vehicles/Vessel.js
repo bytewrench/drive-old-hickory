@@ -597,6 +597,13 @@ export class Vessel {
     g.position.copy(this.position);
     g.quaternion.copy(this.quat);
 
+    // Drive the catalog model's cosmetics: spinning props/fans + the land-mode
+    // deploy/gait animation. Purely visual; the physics above is unaffected.
+    this.model.update?.(dt, {
+      throttle: Math.abs(input?.throttle ?? 0),
+      onLand: this.mode === MODE.LAND,
+    });
+
     for (const w of this.wheels) {
       const v = w.view;
       v.pivot.scale.setScalar(Math.max(0.001, this.deploy));
