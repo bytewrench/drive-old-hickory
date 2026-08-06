@@ -126,6 +126,10 @@ export class Weapons {
     // Direct hit does concentrated damage on top of the blast.
     if (other?.kind === 'prop') {
       game.destruction.damage(other, spec.damage, pos, dir, spec.power);
+    } else if (other?.kind === 'structure' || other?.kind === 'gate') {
+      // Nothing is safe: a shell into a bridge / dock / dam blasts a shower of
+      // concrete chunks off it (and leaves a scar via explode's scorch).
+      game.destruction.blastChunks(pos, dir, 0x9a938a, 10 + (spec.radius | 0));
     }
 
     game.destruction.explode(

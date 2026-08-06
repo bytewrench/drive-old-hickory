@@ -108,10 +108,31 @@ export class PropSystem {
     this._p = new THREE.Vector3();
     this._s = new THREE.Vector3(1, 1, 1);
     this.floaters = [];
+    /** Destroyed props queued to grow back: {spec, x, y, z, yaw, at}. */
+    this.respawnQueue = [];
 
     this._defineParts();
     this._scatter();
     this.flushAll();
+  }
+
+  /** Schedule a destroyed prop to grow back later (persists during play). */
+  scheduleRespawn(prop) {
+    if (!prop?.spawn || !prop.spec) return;
+    // Longer for the big landmarks, so they stay wrecked a good while.
+    const delay = 70 + Math.random() * 50 + (prop.spec.points || 0) * 0.08;
+    this.respawnQueue.push({ spec: prop.spec, ...prop.spawn, at: game.time + delay });
+  }
+
+  _processRespawns() {
+    if (!this.respawnQueue.length) return;
+    const now = game.time;
+    for (let i = this.respawnQueue.length - 1; i >= 0; i--) {
+      const r = this.respawnQueue[i];
+      if (now < r.at) continue;
+      this.respawnQueue.splice(i, 1);
+      this.add(r.spec, r.x, r.y, r.z, r.yaw);
+    }
   }
 
   // ── part table ──────────────────────────────────────────────
@@ -189,6 +210,7 @@ export class PropSystem {
       instances: [],
       awake: true,
       restTimer: 0,
+      spawn: { x, y, z, yaw },          // where it grows back
     };
 
     for (const p of spec.parts) {
@@ -506,6 +528,8 @@ export class PropSystem {
    * field; forces must be cleared first because Rapier keeps them until reset.
    */
   fixedUpdate(dt, time) {
+    this._processRespawns();
+
     // Only float (and keep awake) props near the player. Across the 150 km
     // corridor there are hundreds of buoys and floating targets; waking all of
     // them every step dominated the physics budget. Beyond ~700 m they just

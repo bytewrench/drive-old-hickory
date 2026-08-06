@@ -6,7 +6,8 @@
 
 import * as THREE from 'three';
 import { RAPIER } from '../core/Physics.js';
-import { LIMITS } from '../config.js';
+import { LIMITS, WATER_LEVEL } from '../config.js';
+import { isWaterAt } from '../world/heightfield.js';
 import { game, addScore } from '../game.js';
 
 const CHUNK_GEO = new THREE.BoxGeometry(1, 1, 1);
@@ -53,6 +54,64 @@ export class Destruction {
     this._c = new THREE.Color();
     this.combo = 0;
     this.comboTimer = 0;
+
+    this._buildScorch(scene);
+  }
+
+  // ── persistent blast scars ──────────────────────────────────
+  // Every explosion burns a scorch mark into whatever it hit — ground,
+  // structure, anything. Marks persist for the whole session (real, lasting
+  // damage); the pool is a ring buffer, so once it fills, the OLDEST scar
+  // fades away as new ones are made — the world slowly heals ("grows back").
+  _buildScorch(scene) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 128;
+    const x = cv.getContext('2d');
+    const g = x.createRadialGradient(64, 64, 6, 64, 64, 62);
+    g.addColorStop(0, 'rgba(10,8,6,0.92)');
+    g.addColorStop(0.45, 'rgba(24,18,12,0.7)');
+    g.addColorStop(0.8, 'rgba(30,22,16,0.28)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+    // A few charred flecks for texture.
+    x.fillStyle = 'rgba(0,0,0,0.5)';
+    for (let i = 0; i < 24; i++) {
+      const a = Math.random() * 6.283, r = 12 + Math.random() * 46;
+      x.beginPath(); x.arc(64 + Math.cos(a) * r, 64 + Math.sin(a) * r, 1 + Math.random() * 4, 0, 6.283); x.fill();
+    }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.rotateX(-Math.PI / 2);           // lie flat, face up
+    this.scorchMax = 240;
+    this.scorchMat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, depthWrite: false, opacity: 0.9,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    });
+    this.scorch = new THREE.InstancedMesh(geo, this.scorchMat, this.scorchMax);
+    this.scorch.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.scorch.frustumCulled = false;
+    this.scorch.count = this.scorchMax;
+    this.scorch.renderOrder = 3;
+    const hide = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (let i = 0; i < this.scorchMax; i++) this.scorch.setMatrixAt(i, hide);
+    this.scorch.instanceMatrix.needsUpdate = true;
+    this.scorchCursor = 0;
+    scene.add(this.scorch);
+  }
+
+  /** Burn a scorch scar flat onto whatever was hit at (x,y,z). */
+  addScorch(x, y, z, radius) {
+    const i = this.scorchCursor;
+    this.scorchCursor = (i + 1) % this.scorchMax;
+    const s = Math.max(3, radius * 1.6);
+    this._v.set(x, y + 0.12, z);
+    this._q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.283);
+    this._sv.set(s, s, s);
+    this._m.compose(this._v, this._q, this._sv);
+    this.scorch.setMatrixAt(i, this._m);
+    this.scorch.instanceMatrix.needsUpdate = true;
   }
 
   // ── damage entry point ──────────────────────────────────────
@@ -95,6 +154,7 @@ export class Destruction {
     const spec = prop.spec;
     const pos = { x: t.x, y: t.y, z: t.z };
 
+    game.props.scheduleRespawn(prop);      // it'll grow back eventually
     game.props.remove(prop);
 
     // Score + combo.
@@ -145,6 +205,26 @@ export class Destruction {
     }
   }
 
+  /** A burst of debris chunks off a struck surface (bridge, dam, dock…). */
+  blastChunks(pos, dir, color, n = 12) {
+    const col = new THREE.Color(color);
+    game.fx.debrisPuff(pos.x, pos.y, pos.z, col.r, col.g, col.b, 14);
+    game.audio?.crash();
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 6 + Math.random() * 14;
+      this.spawnChunk(
+        pos.x + (Math.random() - 0.5) * 2, pos.y + (Math.random() - 0.5) * 2, pos.z + (Math.random() - 0.5) * 2,
+        0.4 + Math.random() * 0.7, col,
+        {
+          x: (dir.x * 0.4 + Math.cos(a)) * sp,
+          y: 4 + Math.random() * 12,
+          z: (dir.z * 0.4 + Math.sin(a)) * sp,
+        },
+      );
+    }
+  }
+
   // ── explosions ──────────────────────────────────────────────
   /**
    * @param {{x,y,z}} pos
@@ -156,6 +236,11 @@ export class Destruction {
   explode(pos, radius = 16, power = 260, scale = 1, source = null) {
     game.fx.explosion(pos.x, pos.y, pos.z, scale);
     game.audio?.explosion();
+    // A lasting scar wherever the blast lands — but not out on open water,
+    // where it would float. Marks stay until the ring buffer recycles them.
+    if (!isWaterAt(pos.x, pos.z) || pos.y > WATER_LEVEL + 1.5) {
+      this.addScorch(pos.x, pos.y, pos.z, Math.min(radius, 26));
+    }
 
     const v = game.vessel;
     if (v) {
