@@ -152,14 +152,22 @@ export class MobileControls {
   }
 
   // ── slingshot dash ──────────────────────────────────────────
-  // A launch impulse + a short nitro burst in the pulled direction. It does
-  // NOT set a driving target — you keep steering with WASD (or the joystick).
+  // A launch impulse + a short nitro burst in the pulled direction, and the bow
+  // snaps to point that way so the vessel launches where it's aimed. You still
+  // keep full WASD / joystick steering through the dash.
   _release() {
     const v = game.vessel;
     if (!v) return;
     const dir = this._slingWorldDir();
     if (!dir) return;
     const power = this.sling.power;
+
+    // Point the bow in the launch direction (level, no tumble) so the vessel
+    // heads where it was flung instead of skating off sideways.
+    const yaw = Math.atan2(dir.x, dir.z);
+    v.body.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
+    v.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
     const imp = v.mass * (7 + power * 30);
     v.body.applyImpulse({ x: dir.x * imp, y: imp * 0.05, z: dir.z * imp }, true);
     this.boostTimer = 0.4 + power * 1.4;
