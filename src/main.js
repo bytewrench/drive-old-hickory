@@ -30,6 +30,9 @@ import { Weapons } from './gameplay/Weapons.js';
 import { Vessel } from './vehicles/Vessel.js';
 import { VESSELS } from './vehicles/vesselConfigs.js';
 import { Hud } from './ui/Hud.js';
+import { NetHud } from './ui/NetHud.js';
+import { Multiplayer } from './net/Multiplayer.js';
+import { cleanName } from '../shared/protocol.js';
 
 const loader = document.getElementById('loader');
 const loadbar = document.getElementById('loadbar');
@@ -51,7 +54,7 @@ let currentIndex = 0;
 let weatherIndex = 0;
 let waterTarget = WATER_BASE;
 
-function setWeather(index, announce = true) {
+function setWeather(index, announce = true, fromNet = false) {
   weatherIndex = ((index % WEATHER.length) + WEATHER.length) % WEATHER.length;
   const w = WEATHER[weatherIndex];
   waterTarget = WATER_BASE + w.depth;
@@ -62,12 +65,31 @@ function setWeather(index, announce = true) {
   const btn = document.querySelector('#mobile-actions [data-act="weather"]');
   if (btn) btn.textContent = w.icon;
   if (announce) game.hud.toast(`${w.icon} ${w.name.toUpperCase()}`, true);
+  // One sky for the whole room: whoever turns the weather turns it for
+  // everybody. Changes arriving from the net don't bounce back out.
+  if (!fromNet) game.mp?.reportWorld(weatherIndex, game.nightTarget);
 }
 
 function cycleWeather() {
   setWeather(weatherIndex + 1);
   game.audio?.whoosh();
 }
+
+/** Night is the other half of the shared sky. */
+function setNight(on, fromNet = false) {
+  game.nightTarget = on ? 1 : 0;
+  if (!fromNet) game.mp?.reportWorld(weatherIndex, game.nightTarget);
+}
+
+/** Applied when the server tells us what the room's sky looks like. */
+game.applyNetWorld = (weather, night) => {
+  if (Number.isInteger(weather) && weather !== weatherIndex) setWeather(weather, true, true);
+  const n = night ? 1 : 0;
+  if (n !== game.nightTarget) {
+    setNight(n, true);
+    game.hud?.toast(n ? 'SYNTHWAVE NIGHT' : 'SUNNY MORNING', true);
+  }
+};
 
 // ──────────────────────────────────────────────────────────────
 async function boot() {
@@ -110,6 +132,11 @@ async function boot() {
   game.audio = new AudioKit();
   game.hud = new Hud(game.water.heightData, HEIGHT_TEX_RES);
 
+  // The room. Built now so remote boats have somewhere to land, but the
+  // socket doesn't open until LAUNCH, when we know the player's call sign.
+  game.mp = new Multiplayer(physics, engine.scene);
+  game.netHud = new NetHud(game.mp);
+
   await progress(93, 'warming shaders…');
   engine.postfx = new PostFX(engine.renderer, engine.scene, engine.camera);
   engine.applyDayNight(0);
@@ -144,10 +171,16 @@ function spawnVessel(index, keepTransform = true) {
     spawn = { x: HUNTERS_POINT.dockX, y: 3.5, z: HUNTERS_POINT.dockZ };
   }
 
+  // Swapping hulls mid-river carries your damage across, so hopping to a
+  // fresh boat isn't a free repair while somebody is shooting at you.
+  // Picking a boat in the garage (keepTransform false) starts clean.
+  const carried = prev && keepTransform ? prev.health / prev.maxHealth : 1;
+
   prev?.dispose();
 
   currentIndex = index;
   const v = new Vessel(game.physics, game.engine.scene, VESSELS[index], spawn);
+  v.health = Math.max(1, Math.round(v.maxHealth * carried));
   v.setNight(game.night);
   game.vessel = v;
   game.hud.setVessel(index);
@@ -182,7 +215,7 @@ function buildMobileHud() {
       e.preventDefault();
       const act = btn.dataset.act;
       if (act === 'reset') { game.vessel?.reset(); game.hud.toast('BACK AT HUNTERS POINT'); }
-      else if (act === 'night') { game.nightTarget = game.nightTarget > 0.5 ? 0 : 1; }
+      else if (act === 'night') { setNight(game.nightTarget <= 0.5); }
       else if (act === 'cam') { game.engine.camDistance = (game.engine.camDistance + 1) % 3; }
       else if (act === 'weather') { cycleWeather(); }
       game.audio?.whoosh();
@@ -226,10 +259,28 @@ function installCollisionRules() {
     if (!va && !vb) return;
 
     const other = va ? b : a;
-    if (!other || other.kind !== 'prop' || !other.alive) return;
-
     const v = game.vessel;
     if (!v) return;
+
+    // ── boat on boat ──
+    // Both hulls take damage from the closing speed, each computed on its
+    // own client. They see slightly different numbers — nobody sees a
+    // collision that didn't happen, which is the part that matters.
+    if (other?.kind === 'remote') {
+      // The registry hands back the collider's entity wrapper, not the ghost.
+      const ghost = other.remote;
+      if (!ghost) return;
+      const closing = v.vel.distanceTo(ghost.velocity);
+      if (closing < 9) return;
+      const dmg = (closing - 8) * 1.6 * Math.sqrt(v.mass / 1300);
+      v.applyDamage(dmg, ghost.id);
+      game.engine.addShake(Math.min(closing * 0.03, 1.2));
+      game.fx.sparks(ghost.position.x, ghost.position.y + 1, ghost.position.z, 16, 1, 0.8, 0.35);
+      game.audio?.crash();
+      return;
+    }
+
+    if (!other || other.kind !== 'prop' || !other.alive) return;
 
     const speed = v.speed;
     if (speed < 5) return;
@@ -288,13 +339,23 @@ function buildGarage() {
     return el;
   });
 
+  // Remember the call sign between visits.
+  const nameInput = document.getElementById('player-name');
+  nameInput.value = localStorage.getItem('doh.name') || '';
+
   document.getElementById('launch').addEventListener('click', () => {
     document.getElementById('garage').classList.add('hidden');
     game.hud.show();
+    game.netHud.show();
     game.input.enabled = true;
     game.running = true;
     game.audio.start();
     game.hud.toast('LEAVING HUNTERS POINT BOAT DOCK', true);
+
+    const name = cleanName(nameInput.value);
+    localStorage.setItem('doh.name', name);
+    game.mp.selfName = name;
+    game.mp.connect(name, currentIndex);
   });
 }
 
@@ -354,6 +415,7 @@ function frame() {
     game.props.setNight(game.night);
     game.structures.setNight(game.night);
     game.weapons.setNight(game.night);
+    game.mp.setNight(game.night);
     v?.setNight(game.night);
   }
 
@@ -370,6 +432,11 @@ function frame() {
       v.mode === 'water',
     );
   }
+
+  // Broadcast our boat and replay everyone else's. After the local vessel's
+  // readTransform above, so what goes out is this frame's pose, not last's.
+  game.mp.update(dt);
+  game.netHud.update(dt, game.engine.camera);
 
   game.props.update(dt, game.time);
   game.destruction.update(dt);
@@ -414,7 +481,7 @@ function handleHotkeys(input) {
   }
 
   if (input.consume('KeyT')) {
-    game.nightTarget = game.nightTarget > 0.5 ? 0 : 1;
+    setNight(game.nightTarget <= 0.5);
     game.hud.toast(game.nightTarget > 0.5 ? 'SYNTHWAVE NIGHT' : 'SUNNY MORNING', true);
   }
 

@@ -73,15 +73,26 @@ npm run dev
 Open the URL Vite prints (default <http://localhost:5173>), pick a vessel, hit
 **LAUNCH**.
 
-Production build:
+For multiplayer in dev, run the relay alongside it in a second terminal — Vite
+proxies `/ws` to it, so the client connects to its own origin either way:
+
+```bash
+npm run server
+```
+
+Production is a **single Node process** that serves the built bundle *and* runs
+the relay, which is what the Docker image starts:
 
 ```bash
 npm run build
 ```
 
 ```bash
-npm run preview
+npm start
 ```
+
+That serves <http://localhost:8080> with the multiplayer socket on `/ws`. Set
+`PORT` to move it. `npm run preview` still works for a static-only look.
 
 ---
 
@@ -122,8 +133,8 @@ comfort. The vessels are hard to flip and self-right within ~1 s after a flub.
 | Mouse | Aim the turret (Dreadnought) |
 | Left click / `Space` | Fire |
 | `1` – `4` | Swap vessel instantly, in place |
-| `R` | Reset to Hunters Point Boat Dock |
-| `T` | Sunny morning ⇄ synthwave night |
+| `R` | Reset to Hunters Point Boat Dock (also repairs the hull) |
+| `T` | Sunny morning ⇄ synthwave night — shared with the room |
 | `C` | Cycle camera distance |
 | `X` | Handbrake (kills grip — drift on land) |
 | `M` | Mute |
@@ -188,9 +199,58 @@ src/
 ├── gameplay/
 │   ├── Weapons.js           CCD cannonballs, detonation
 │   └── Destruction.js       damage, debris pool, blast falloff, combos
+├── net/
+│   ├── Net.js               the socket: reconnect, 20 Hz throttle, dispatch
+│   ├── RemoteVessel.js      another player's boat — interpolated, kinematic
+│   └── Multiplayer.js       ties the socket to the world
 ├── fx/Particles.js          GPU-integrated particle pools
-└── ui/                      HUD, minimap, styles
+└── ui/                      HUD, minimap, nameplates/roster/feed, styles
+
+server/
+├── index.mjs                static host + WebSocket relay (one process)
+└── static.mjs               dist/ with the caching rules nginx used to do
+shared/protocol.js           the wire format, imported by both sides
 ```
+
+### Multiplayer: everyone shares one Cumberland
+
+Open the URL, type a call sign, launch — you're on the same river as everyone
+else who did. There are no rooms and no lobby.
+
+**The server relays; it does not simulate.** It runs no physics and doesn't
+know where the river is — replicating a 56 km heightfield and a full Rapier
+world server-side would buy nothing here. Each client sims exactly one boat,
+its own, and broadcasts the result 20 times a second. Everyone else renders
+that as a `RemoteVessel`: no buoyancy, no wheels, no forces, just a replay of
+what its owner reported, **90 ms in the past** so there are always two samples
+to blend between. What the ghost *does* carry is a real kinematic collider —
+that's what lets you ram somebody and lets your shells hit them. Kinematic
+bodies win every contact, so a ghost never gets shoved off its owner's
+reported path; the local player is the one who bounces.
+
+**You decide when you get hurt.** Damage is applied only by the client that
+owns the boat, never by the shooter. Fire a cannon and the shot is relayed as
+position + velocity; every client launches that shell through its own physics,
+and if it detonates on *your* hull, *your* machine applies the damage and tells
+the room. Two clients can disagree about a near miss. They can never disagree
+about a kill — which is the part that would actually be visible. The same rule
+covers blast falloff and ramming (closing speed, computed on both sides).
+
+Hull integrity scales off each vessel's mass stat, so the Bollard soaks three
+turret shells where the Bowrider barely survives one. Sink and you drift as a
+wreck for 3.5 s, then relaunch at the ramp. Swapping hulls mid-river carries
+your damage across, so hopping boats isn't a free repair.
+
+Prop destruction and the sky are shared too. The scatter pass is seeded, so
+every client builds the same props in the same order and agrees on their ids —
+that's what lets "I blew up prop 812" mean the same thing everywhere, and a
+prop keeps its id when it grows back. Weather and night are whoever touched
+them last, held by the server so a late joiner sees the same sky.
+
+What that buys and what it costs: no server tick to fight, no rollback, no
+authoritative state to reconcile, and a relay that idles at nearly nothing. In
+exchange, a determined client can lie about where its own boat is. For a
+sandbox on a private river that is the right trade.
 
 ### Hunters Point Boat Dock
 

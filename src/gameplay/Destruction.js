@@ -148,21 +148,30 @@ export class Destruction {
     return true;
   }
 
-  break(prop, point, dir, force = 0) {
+  /**
+   * @param {boolean} remote true when replaying somebody else's kill — it
+   *   still comes apart here, but they get the points, not us, and we don't
+   *   bounce the event back out to the room.
+   */
+  break(prop, point, dir, force = 0, remote = false) {
     if (!prop.alive) return;
     const t = prop.body.translation();
     const spec = prop.spec;
     const pos = { x: t.x, y: t.y, z: t.z };
 
+    if (!remote) game.mp?.reportBreak(prop, pos, dir, force);
+
     game.props.scheduleRespawn(prop);      // it'll grow back eventually
     game.props.remove(prop);
 
-    // Score + combo.
-    this.combo++;
-    this.comboTimer = 2.0;
-    const mult = Math.min(1 + (this.combo - 1) * 0.25, 5);
-    addScore(Math.round((spec.points || 25) * mult), spec.duck ? 'RUBBER DUCK!' : null);
-    if (this.combo > 2) game.hud?.setCombo(this.combo, mult);
+    // Score + combo — only for wreckage we actually caused.
+    if (!remote) {
+      this.combo++;
+      this.comboTimer = 2.0;
+      const mult = Math.min(1 + (this.combo - 1) * 0.25, 5);
+      addScore(Math.round((spec.points || 25) * mult), spec.duck ? 'RUBBER DUCK!' : null);
+      if (this.combo > 2) game.hud?.setCombo(this.combo, mult);
+    }
 
     const col = new THREE.Color(spec.chunkColor ?? 0xcccccc);
 
@@ -232,8 +241,9 @@ export class Destruction {
    * @param {number} power impulse at ground zero
    * @param {number} scale visual scale
    * @param {object|null} source prop to skip
+   * @param {number|null} attacker player id to credit if this kills us
    */
-  explode(pos, radius = 16, power = 260, scale = 1, source = null) {
+  explode(pos, radius = 16, power = 260, scale = 1, source = null, attacker = null) {
     game.fx.explosion(pos.x, pos.y, pos.z, scale);
     game.audio?.explosion();
     // A lasting scar wherever the blast lands — but not out on open water,
@@ -278,6 +288,12 @@ export class Destruction {
         const f = (1 - dist / (radius * 1.6)) * kick * 0.5 * v.mass;
         const inv = 1 / Math.max(dist, 0.001);
         v.body.applyImpulse({ x: dx * inv * f, y: dy * inv * f + f * 0.5, z: dz * inv * f }, true);
+
+        // …and it should cost you. Splash damage falls off over the blast
+        // proper, not the wider shove radius, so near misses only push.
+        if (dist < radius) {
+          v.applyDamage(power * 0.04 * (1 - dist / radius), attacker);
+        }
       }
     }
 

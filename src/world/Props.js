@@ -111,6 +111,15 @@ export class PropSystem {
     /** Destroyed props queued to grow back: {spec, x, y, z, yaw, at}. */
     this.respawnQueue = [];
 
+    // Stable identity for the network. The scatter pass is seeded, so every
+    // client builds the same props in the same order and therefore agrees on
+    // these ids — that's what lets "I blew up prop 812" mean the same thing
+    // everywhere. A prop keeps its id when it grows back, so the mapping
+    // survives respawns even though respawn *timing* is local.
+    this._nextNetId = 0;
+    /** @type {Map<number, object>} netId → prop */
+    this.byNetId = new Map();
+
     this._defineParts();
     this._scatter();
     this.flushAll();
@@ -121,7 +130,9 @@ export class PropSystem {
     if (!prop?.spawn || !prop.spec) return;
     // Longer for the big landmarks, so they stay wrecked a good while.
     const delay = 70 + Math.random() * 50 + (prop.spec.points || 0) * 0.08;
-    this.respawnQueue.push({ spec: prop.spec, ...prop.spawn, at: game.time + delay });
+    this.respawnQueue.push({
+      spec: prop.spec, ...prop.spawn, netId: prop.netId, at: game.time + delay,
+    });
   }
 
   _processRespawns() {
@@ -131,7 +142,7 @@ export class PropSystem {
       const r = this.respawnQueue[i];
       if (now < r.at) continue;
       this.respawnQueue.splice(i, 1);
-      this.add(r.spec, r.x, r.y, r.z, r.yaw);
+      this.add(r.spec, r.x, r.y, r.z, r.yaw, r.netId);
     }
   }
 
@@ -166,7 +177,7 @@ export class PropSystem {
    *   shape   : 'box' | 'ball' | 'cyl'
    *   mass, hp, points, chunkColor, float, explosive
    */
-  add(spec, x, y, z, yaw = 0) {
+  add(spec, x, y, z, yaw = 0, netId = null) {
     const world = this.physics.world;
     // Floating props (buoys, ducks, crates on water) must be dynamic to bob.
     // Land scenery starts FIXED and only becomes dynamic when hit — otherwise
@@ -211,7 +222,9 @@ export class PropSystem {
       awake: true,
       restTimer: 0,
       spawn: { x, y, z, yaw },          // where it grows back
+      netId: netId ?? this._nextNetId++,
     };
+    this.byNetId.set(prop.netId, prop);
 
     for (const p of spec.parts) {
       const part = this.parts.get(p.key);

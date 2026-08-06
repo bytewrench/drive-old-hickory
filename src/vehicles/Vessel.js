@@ -22,6 +22,16 @@ import { game } from '../game.js';
 const UP = new THREE.Vector3(0, 1, 0);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+/** Helm input for a wreck — see the death branch in fixedUpdate. */
+const DEAD_INPUT = {
+  throttle: 0, steer: 0, boost: false, handbrake: false, ndc: { x: 0, y: 0 },
+};
+
+/** Seconds a hit still counts toward the kill after it lands. */
+const ASSIST_WINDOW = 8;
+/** Seconds spent as a wreck before relaunching at the ramp. */
+const RESPAWN_DELAY = 3.5;
+
 export const MODE = { WATER: 'water', LAND: 'land', AIR: 'air' };
 
 export class Vessel {
@@ -63,6 +73,19 @@ export class Vessel {
     this.fireCooldown = 0;
     this.broadsideSide = 0;
     this._wasSubmerged = 0;
+
+    // ── damage model (multiplayer) ──
+    // Hull integrity. Single-player never loses any unless somebody shoots
+    // you, so this is inert offline and only comes alive in a shared river.
+    // Hull integrity scales off the mass stat, so the Bollard (220) soaks
+    // three turret shells where the Bowrider (116) barely survives one.
+    this.maxHealth = Math.round(90 + (cfg.stats?.mass ?? 0.5) * 130);
+    this.health = this.maxHealth;
+    this.dead = false;
+    this.respawnIn = 0;
+    /** Who hit us last, and how long that still counts for the kill. */
+    this.lastHitBy = null;
+    this.lastHitAge = 0;
 
     this._buildBody(spawn ?? { x: HUNTERS_POINT.dockX, y: 2.5, z: HUNTERS_POINT.dockZ });
     this._buildMesh();
@@ -209,6 +232,16 @@ export class Vessel {
   // ── the physics step ────────────────────────────────────────
   fixedUpdate(dt, input, time) {
     if (this.disposed) return;
+
+    // A sunk hull is dead in the water: buoyancy, drag and self-righting all
+    // keep running so the wreck drifts and bobs, but the helm does nothing
+    // until the respawn timer puts you back on the ramp.
+    if (this.dead) {
+      input = DEAD_INPUT;
+      this.respawnIn -= dt;
+      if (this.respawnIn <= 0) this.respawn();
+    }
+    if (this.lastHitAge > 0) this.lastHitAge -= dt;
 
     // Rapier accumulates user forces until they are explicitly cleared — every
     // force we add below is a *this step only* force, so wipe last step's first.
@@ -757,6 +790,57 @@ export class Vessel {
     game.engine?.addShake(Math.min(power / 700, 1.4));
   }
 
+  // ── damage ──────────────────────────────────────────────────
+  /**
+   * Take a hit. This is the ONLY place the local boat loses health, and it
+   * always runs on the machine that owns the boat — see the authority note
+   * in shared/protocol.js. Everything networked flows out from here.
+   *
+   * @param {number} amount
+   * @param {number|null} byId player id responsible, or null for the world
+   */
+  applyDamage(amount, byId = null) {
+    if (this.dead || this.disposed || !(amount > 0)) return;
+
+    this.health -= amount;
+    if (byId != null) { this.lastHitBy = byId; this.lastHitAge = ASSIST_WINDOW; }
+
+    game.engine?.addShake(Math.min(amount / 55, 1.0));
+    game.hud?.damageFlash(amount / this.maxHealth);
+    game.audio?.crash();
+
+    if (this.health > 0) {
+      game.mp?.reportDamage(amount, byId, false);
+      return;
+    }
+
+    this.health = 0;
+    this._sink(byId ?? (this.lastHitAge > 0 ? this.lastHitBy : null), amount);
+  }
+
+  _sink(killer, amount) {
+    this.dead = true;
+    this.respawnIn = RESPAWN_DELAY;
+
+    // Going up takes the neighbourhood with you.
+    game.destruction?.explode(
+      { x: this.position.x, y: this.position.y + 0.5, z: this.position.z },
+      16, 260, 1.8, null, killer,
+    );
+    game.hud?.toast(killer != null ? `SUNK BY ${game.mp?.nameOf(killer) ?? 'SOMEONE'}` : 'WRECKED', true);
+    game.mp?.reportDamage(amount, killer, true);
+  }
+
+  respawn() {
+    this.dead = false;
+    this.health = this.maxHealth;
+    this.lastHitBy = null;
+    this.lastHitAge = 0;
+    this.reset();
+    game.hud?.toast('RELAUNCHED', true);
+    game.audio?.whoosh();
+  }
+
   // ── lifecycle ───────────────────────────────────────────────
   /** No target = back to Hunters Point Boat Dock, facing open water. */
   reset(target) {
@@ -776,6 +860,11 @@ export class Vessel {
     this.body.resetTorques(true);
     this.boostFuel = 1;
     this.airTime = 0;
+    // Back at the ramp is a repair as well as a tow: it clears the wreck
+    // state, so R also gets you moving again without waiting out the timer.
+    this.health = this.maxHealth;
+    this.dead = false;
+    this.respawnIn = 0;
     game.fx?.splash(x, WATER_LEVEL, z, 1.4);
   }
 

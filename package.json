@@ -6,6 +6,8 @@
   "description": "Cumberland River physics sandbox — boat/ATV driving game (Three.js + Rapier)",
   "scripts": {
     "dev": "vite",
+    "server": "node server/index.mjs",
+    "start": "node server/index.mjs",
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "fetch-osm": "node tools/fetch-osm.mjs",
@@ -13,7 +15,8 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.14.0",
-    "three": "^0.169.0"
+    "three": "^0.169.0",
+    "ws": "^8.21.2"
   },
   "devDependencies": {
     "pngjs": "^7.0.0",

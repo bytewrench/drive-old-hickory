@@ -27,6 +27,12 @@
       <h1>DRIVE&nbsp;OLD&nbsp;HICKORY</h1>
       <p class="sub">pick a vessel — swap any time with <b>1&nbsp;2&nbsp;3&nbsp;4</b></p>
       <div id="garage-cards"></div>
+      <div id="mp-row">
+        <label for="player-name">CALL SIGN</label>
+        <input id="player-name" maxlength="16" autocomplete="off" spellcheck="false"
+               placeholder="Skipper" aria-label="Your name on the river" />
+        <span id="mp-note">everyone shares one Cumberland — cannons work on boats</span>
+      </div>
       <button id="launch">LAUNCH</button>
       <div class="controls-grid">
         <div><b>W A S D</b><span>drive / steer</span></div>
@@ -65,11 +71,26 @@
           <div class="speed-unit">KM/H</div>
         </div>
         <div id="boost-wrap"><i id="boost-bar"></i></div>
+        <div id="hull-wrap"><i id="hull-bar"></i><span>HULL</span></div>
       </div>
 
       <div id="vessel-strip"></div>
       <div id="toast"></div>
       <div id="crosshair"></div>
+      <div id="hurt-flash"></div>
+
+      <!-- ── multiplayer: roster, event feed, floating nameplates ── -->
+      <div id="net-layer" class="hidden">
+        <div id="net-plates"></div>
+        <div id="net-roster">
+          <div id="net-head">
+            <span id="net-status" class="net-offline">OFFLINE</span>
+            <span id="net-count">—</span>
+          </div>
+          <div id="net-list"></div>
+        </div>
+        <div id="net-feed"></div>
+      </div>
 
       <!-- ── touch-only controls ── -->
       <div id="mobile-actions">

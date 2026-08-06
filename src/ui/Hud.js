@@ -25,6 +25,9 @@ export class Hud {
     this.stripEl = document.getElementById('vessel-strip');
     this.toastEl = document.getElementById('toast');
     this.crosshair = document.getElementById('crosshair');
+    this.hullEl = document.getElementById('hull-bar');
+    this.hullWrap = document.getElementById('hull-wrap');
+    this.hurtEl = document.getElementById('hurt-flash');
 
     this.canvas = document.getElementById('minimap');
     this.ctx = this.canvas.getContext('2d');
@@ -119,6 +122,14 @@ export class Hud {
     while (this.toastEl.childElementCount > 4) this.toastEl.firstChild.remove();
   }
 
+  /** Red vignette pulse when the hull takes a hit. @param {number} severity 0–1 */
+  damageFlash(severity) {
+    if (!this.hurtEl) return;
+    this.hurtEl.style.opacity = String(Math.min(0.75, 0.2 + severity * 1.6));
+    clearTimeout(this._hurtTimer);
+    this._hurtTimer = setTimeout(() => { this.hurtEl.style.opacity = '0'; }, 90);
+  }
+
   bumpScore(n, label) { if (label) this.toast(`${label}  +${n}`, true); }
   setCombo(count, mult) { this.comboEl.textContent = count > 1 ? `${count}× CHAIN · ${mult.toFixed(2)}×` : ''; }
 
@@ -139,6 +150,11 @@ export class Hud {
 
     this.boostEl.style.transform = `scaleX(${vessel.boostFuel})`;
     this.boostWrap.classList.toggle('empty', vessel.boostFuel < 0.05);
+
+    const hull = Math.max(0, vessel.health / vessel.maxHealth);
+    this.hullEl.style.transform = `scaleX(${hull})`;
+    this.hullWrap.classList.toggle('critical', hull > 0 && hull < 0.3);
+    this.hullWrap.classList.toggle('sunk', vessel.dead);
 
     this._mapTimer -= dt;
     if (this._mapTimer <= 0) { this._mapTimer = 1 / 15; this._drawMap(vessel); }

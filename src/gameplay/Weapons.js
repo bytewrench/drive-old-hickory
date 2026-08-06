@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { RAPIER } from '../core/Physics.js';
 import { LIMITS, WATER_LEVEL } from '../config.js';
 import { isWaterAt } from '../world/heightfield.js';
+import { VESSELS } from '../vehicles/vesselConfigs.js';
 import { game } from '../game.js';
 
 const BALL_GEO = new THREE.IcosahedronGeometry(1, 1);
@@ -50,8 +51,12 @@ export class Weapons {
       if (!shellA && !shellB) return;
       const shell = shellA ?? shellB;
       const other = shellA ? b : a;
-      // Don't let a shell detonate on the barrel it just left.
-      if (other?.kind === 'vessel' && shell.age < 0.08) return;
+      // Don't let a shell detonate on the barrel it just left — including a
+      // remote shell leaving the ghost of the boat that fired it.
+      if (shell.age < 0.08) {
+        if (other?.kind === 'vessel' && shell.owner == null) return;
+        if (other?.kind === 'remote' && other.id === shell.owner) return;
+      }
       if (other?.kind === 'shell') return;
       this.detonate(shell, other);
     });
@@ -76,6 +81,36 @@ export class Weapons {
   }
 
   spawn(vessel, pos, dir, spec) {
+    const vel = {
+      x: dir.x * spec.speed + vessel.vel.x,
+      y: dir.y * spec.speed + vessel.vel.y,
+      z: dir.z * spec.speed + vessel.vel.z,
+    };
+    this._launch(pos, vel, spec, null);
+    // Tell the room, so the same shell flies on everybody's river.
+    game.mp?.reportShot(pos, vel);
+  }
+
+  /**
+   * A shell somebody else fired. It is simulated here like any other — that
+   * is what lets it actually hit us — but only its owner's client decides
+   * what it does to *their* boat, and only ours decides what it does to ours.
+   *
+   * @param {number[]} p world position   @param {number[]} v launch velocity
+   * @param {number} vesselIndex shooter's hull, for the weapon spec
+   * @param {number} ownerId shooter's player id
+   */
+  spawnRemote(p, v, vesselIndex, ownerId) {
+    const cfg = VESSELS[vesselIndex] ?? VESSELS[0];
+    const spec = cfg.weapon;
+    if (!spec || spec.type === 'none') return;
+    const pos = { x: p[0], y: p[1], z: p[2] };
+    this._launch(pos, { x: v[0], y: v[1], z: v[2] }, spec, ownerId);
+    game.fx.muzzle(pos.x, pos.y, pos.z, v[0], v[1], v[2]);
+  }
+
+  /** @param {number|null} owner player id, or null when it's ours. */
+  _launch(pos, vel, spec, owner) {
     const i = this.cursor;
     this.cursor = (i + 1) % this.max;
     if (this.slots[i]) this._despawn(i);
@@ -87,11 +122,7 @@ export class Weapons {
         .setLinearDamping(0.012)
         .setCcdEnabled(true)
         .setCanSleep(false)
-        .setLinvel(
-          dir.x * spec.speed + vessel.vel.x,
-          dir.y * spec.speed + vessel.vel.y,
-          dir.z * spec.speed + vessel.vel.z,
-        ),
+        .setLinvel(vel.x, vel.y, vel.z),
     );
     const collider = world.createCollider(
       RAPIER.ColliderDesc.ball(spec.ballRadius)
@@ -103,7 +134,7 @@ export class Weapons {
     );
 
     const shell = {
-      kind: 'shell', body, collider, spec,
+      kind: 'shell', body, collider, spec, owner,
       ttl: 8, age: 0, slot: i, dead: false,
     };
     this.slots[i] = shell;
@@ -126,6 +157,14 @@ export class Weapons {
     // Direct hit does concentrated damage on top of the blast.
     if (other?.kind === 'prop') {
       game.destruction.damage(other, spec.damage, pos, dir, spec.power);
+    } else if (other?.kind === 'vessel') {
+      // Our own boat, wherever the shell came from — this client is the only
+      // one entitled to say so.
+      other.vessel.applyDamage(spec.damage, shell.owner);
+    } else if (other?.kind === 'remote') {
+      // Somebody else's boat. We show the impact and stop there; their client
+      // runs this same shell and decides what it cost them.
+      game.fx.sparks(pos.x, pos.y, pos.z, 14, 1, 0.72, 0.3);
     } else if (other?.kind === 'structure' || other?.kind === 'gate') {
       // Nothing is safe: a shell into a bridge / dock / dam blasts a shower of
       // concrete chunks off it (and leaves a scar via explode's scorch).
@@ -135,6 +174,7 @@ export class Weapons {
     game.destruction.explode(
       pos, spec.radius, spec.power, Math.max(0.6, spec.radius / 16),
       other?.kind === 'prop' ? other : null,
+      shell.owner,
     );
 
     // Water hits also throw a column of spray.
