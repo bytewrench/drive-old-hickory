@@ -152,14 +152,29 @@ export class Water {
     this.mesh.renderOrder = 2;
     this.mesh.frustumCulled = false;
     scene.add(this.mesh);
+
+    // Weather tints the deep-water colour; null = use the plain day/night deep.
+    this._weatherDeep = null;
+  }
+
+  /** Called by the weather system: shifts the deep-water colour toward `hex`. */
+  setWeather(preset) {
+    this._weatherDeep = preset?.deep ? new THREE.Color(preset.deep) : null;
   }
 
   update(time, night, fogColor, fogDensity) {
     const u = this.material.uniforms;
     u.uTime.value = time;
     u.uNight.value = night;
+
+    // Follow the live pool height (the weather system lerps WATER_LEVEL).
+    u.uWaterLevel.value = WATER_LEVEL;
+    this.mesh.position.y = WATER_LEVEL;
+
     u.uShallow.value.copy(DAY_COLORS.shallow).lerp(NIGHT_COLORS.shallow, night);
     u.uDeep.value.copy(DAY_COLORS.deep).lerp(NIGHT_COLORS.deep, night);
+    // Weather deepens the water mostly by day (night keeps its synthwave look).
+    if (this._weatherDeep) u.uDeep.value.lerp(this._weatherDeep, 0.6 * (1 - night));
     u.uFoam.value.copy(DAY_COLORS.foam).lerp(NIGHT_COLORS.foam, night);
     u.uSkyTint.value.copy(DAY_COLORS.sky).lerp(NIGHT_COLORS.sky, night);
     u.uSunColor.value.copy(DAY_COLORS.sun).lerp(NIGHT_COLORS.sun, night);

@@ -9,6 +9,9 @@
   <body>
     <canvas id="app"></canvas>
 
+    <!-- Weather mood tint (rain/storm darken & cool the scene) -->
+    <div id="weather-overlay" class="w-fair"></div>
+
     <!-- ── Loading ─────────────────────────────────────────────── -->
     <div id="loader">
       <div class="loader-inner">
@@ -33,6 +36,7 @@
         <div><b>SPACE</b><span>fire cannon</span></div>
         <div><b>1 – 4</b><span>swap vessel</span></div>
         <div><b>R</b><span>back to the ramp</span></div>
+        <div><b>G</b><span>weather / water level</span></div>
         <div><b>T / C / M</b><span>night · cam · mute</span></div>
       </div>
     </div>
@@ -72,6 +76,7 @@
         <button class="mbtn" data-act="reset" aria-label="Reset to ramp">⟲</button>
         <button class="mbtn" data-act="night" aria-label="Day / night">☀</button>
         <button class="mbtn" data-act="cam" aria-label="Camera">🎥</button>
+        <button class="mbtn" data-act="weather" aria-label="Weather">☀️</button>
       </div>
       <button id="mobile-boost" aria-label="Boost">»<span>NITRO</span></button>
       <button id="mobile-fire" aria-label="Fire">✦<span>FIRE</span></button>

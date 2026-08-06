@@ -496,3 +496,29 @@ body.touch-mode #touch-hint {
   #hud-topright { top: 14px; right: 16px; }
   #score { font-size: 26px; }
 }
+
+/* ── weather mood tint ──────────────────────────────────────────
+   Full-screen wash above the 3D (z 12) but below the HUD (z 20).
+   Rain / storm cool and darken the scene; a couple of animated streak
+   layers sell the rain without touching the renderer. */
+#weather-overlay {
+  position: fixed; inset: 0; pointer-events: none; z-index: 12;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0);
+  transition: background-color 1.4s ease;
+}
+#weather-overlay.w-overcast { background-color: rgba(150, 165, 180, .14); }
+#weather-overlay.w-rain     { background-color: rgba(64, 84, 104, .28); }
+#weather-overlay.w-storm    { background-color: rgba(26, 40, 60, .46); }
+#weather-overlay.w-drought  { background-color: rgba(255, 238, 200, .08); }
+
+#weather-overlay.w-rain::before,
+#weather-overlay.w-storm::before {
+  content: ''; position: absolute; inset: -25%;
+  background-image: repeating-linear-gradient(
+    100deg, rgba(255, 255, 255, .06) 0 1px, transparent 1px 8px);
+  opacity: .5;
+  animation: rainfall .5s linear infinite;
+}
+#weather-overlay.w-storm::before { opacity: .8; animation-duration: .32s; }
+@keyframes rainfall { from { transform: translateY(-16%); } to { transform: translateY(16%); } }

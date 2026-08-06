@@ -17,8 +17,31 @@ export const TERRAIN_SEG = 1024;
 /** Resolution of the CPU-baked height texture the water shader samples. */
 export const HEIGHT_TEX_RES = 1024;
 
-/** Still-water plane height (Old Hickory summer pool, as datum). */
-export const WATER_LEVEL = 0;
+/** Baked summer-pool datum. Raised ~6 ft over the old 0 so shallow coves fill
+ *  in and read as real depth instead of patchy shallows. Terrain tint, the map
+ *  bake and every static structure are built once against WATER_BASE. */
+export const WATER_BASE = 1.83;   // +6 ft
+
+/** Live still-water plane height. This is a MUTABLE binding: the weather system
+ *  reassigns it through setWaterLevel(), and every consumer that reads it inside
+ *  a function — buoyancy, wake/splash FX, the water shader — picks the new value
+ *  up on the next frame (ES-module live binding). Do NOT capture it into a
+ *  module-level const at load time or you'll freeze the pool. */
+export let WATER_LEVEL = WATER_BASE;
+export function setWaterLevel(y) { WATER_LEVEL = y; }
+
+/** Weather presets. `depth` is metres of pool relative to the baked datum, so
+ *  Fair sits exactly at the structures' build height and the rest swing a modest
+ *  amount around it — enough to move the shoreline and change how deep the river
+ *  reads without drowning the docks. Every preset still floats deeper than the
+ *  old 0 datum, so the channel never strands. fog / deep are light visual mood. */
+export const WEATHER = [
+  { id: 'fair',     name: 'Fair',      icon: '☀️', depth:  0.00, fog: 1.00, deep: '#14607f' },
+  { id: 'overcast', name: 'Overcast',  icon: '⛅', depth:  0.35, fog: 1.45, deep: '#125a72' },
+  { id: 'rain',     name: 'Rain',      icon: '🌧️', depth:  0.85, fog: 2.10, deep: '#0e4d63' },
+  { id: 'storm',    name: 'Storm',     icon: '⛈️', depth:  1.25, fog: 3.00, deep: '#0a3d54' },
+  { id: 'drought',  name: 'Low Water', icon: '🌵', depth: -0.75, fog: 0.75, deep: '#1c7290' },
+];
 
 export const GRAVITY = -24;
 

@@ -6,7 +6,7 @@ import './ui/style.css';
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 
-import { FIXED_DT, MAX_SUBSTEPS, HEIGHT_TEX_RES, WATER_LEVEL } from './config.js';
+import { FIXED_DT, MAX_SUBSTEPS, HEIGHT_TEX_RES, WATER_LEVEL, WATER_BASE, WEATHER, setWaterLevel } from './config.js';
 import { game, addScore } from './game.js';
 
 import { Engine } from './core/Engine.js';
@@ -44,6 +44,30 @@ function progress(pct, msg) {
 }
 
 let currentIndex = 0;
+
+// ── weather / pool level ────────────────────────────────────────
+// Each weather sets a target pool height; the frame loop lerps the live
+// WATER_LEVEL toward it so the shoreline visibly rises and falls.
+let weatherIndex = 0;
+let waterTarget = WATER_BASE;
+
+function setWeather(index, announce = true) {
+  weatherIndex = ((index % WEATHER.length) + WEATHER.length) % WEATHER.length;
+  const w = WEATHER[weatherIndex];
+  waterTarget = WATER_BASE + w.depth;
+  game.water.setWeather(w);
+  game._weatherFog = w.fog;                       // frame loop scales fog by this
+  const overlay = document.getElementById('weather-overlay');
+  if (overlay) overlay.className = `w-${w.id}`;
+  const btn = document.querySelector('#mobile-actions [data-act="weather"]');
+  if (btn) btn.textContent = w.icon;
+  if (announce) game.hud.toast(`${w.icon} ${w.name.toUpperCase()}`, true);
+}
+
+function cycleWeather() {
+  setWeather(weatherIndex + 1);
+  game.audio?.whoosh();
+}
 
 // ──────────────────────────────────────────────────────────────
 async function boot() {
@@ -94,6 +118,7 @@ async function boot() {
   installCollisionRules();
   buildGarage();
   buildMobileHud();
+  setWeather(0, false);          // Fair, sitting at the baked +6 ft pool
 
   await progress(100, 'ready');
   loader.classList.add('fade');
@@ -159,6 +184,7 @@ function buildMobileHud() {
       if (act === 'reset') { game.vessel?.reset(); game.hud.toast('BACK AT HUNTERS POINT'); }
       else if (act === 'night') { game.nightTarget = game.nightTarget > 0.5 ? 0 : 1; }
       else if (act === 'cam') { game.engine.camDistance = (game.engine.camDistance + 1) % 3; }
+      else if (act === 'weather') { cycleWeather(); }
       game.audio?.whoosh();
     });
   });
@@ -314,6 +340,11 @@ function frame() {
   }
   if (steps === MAX_SUBSTEPS) accumulator = 0;   // don't spiral on a slow frame
 
+  // ── weather: ease the pool toward the selected level ──
+  if (Math.abs(WATER_LEVEL - waterTarget) > 0.0005) {
+    setWaterLevel(WATER_LEVEL + (waterTarget - WATER_LEVEL) * Math.min(1, dt * 1.2));
+  }
+
   // ── day / night blend ──
   if (game.night !== game.nightTarget) {
     const d = game.nightTarget - game.night;
@@ -343,7 +374,10 @@ function frame() {
   game.props.update(dt, game.time);
   game.destruction.update(dt);
   game.weapons.update(dt);
-  game.water.update(game.time, game.night, game.engine.fogColor, game.engine.scene.fog.density);
+  game.water.update(
+    game.time, game.night, game.engine.fogColor,
+    game.engine.scene.fog.density * (game._weatherFog || 1),
+  );
   game.fx.update(game.time, innerHeight * game.engine.renderer.getPixelRatio());
   game.engine.tickUniforms(game.time);
   game.hud.update(dt, v);
@@ -387,6 +421,8 @@ function handleHotkeys(input) {
   if (input.consume('KeyC')) {
     game.engine.camDistance = (game.engine.camDistance + 1) % 3;
   }
+
+  if (input.consume('KeyG')) cycleWeather();
 
   if (input.consume('KeyM')) {
     const muted = game.audio.toggleMute();
