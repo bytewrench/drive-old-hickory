@@ -221,6 +221,9 @@ h1 {
   border-radius: 16px;
   background: rgba(8, 14, 34, .55);
   border: 2px solid rgba(255, 255, 255, .16);
+  /* #hud is pointer-events:none; re-enable here so tapping the map opens it. */
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 #hud-bottomright { bottom: 20px; right: 24px; text-align: right; }
