@@ -181,6 +181,30 @@ h1 {
 #hud > div { position: absolute; }
 
 #hud-topleft { top: 20px; left: 22px; }
+
+/* Always-visible sound on/off — works on desktop and mobile. */
+#sound-toggle {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px 8px 11px;
+  border-radius: 99px;
+  border: 2px solid rgba(255, 255, 255, .18);
+  background: rgba(8, 14, 34, .55);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+#sound-toggle span { font-size: 11px; letter-spacing: .16em; opacity: .8; }
+#sound-toggle:active { transform: scale(.94); }
+#sound-toggle.muted { border-color: rgba(255, 93, 115, .5); color: #ff9aa8; opacity: .85; }
 #vessel-name { font-size: 22px; font-weight: 900; letter-spacing: .1em; text-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
 #vessel-mode { margin-top: 3px; font-size: 11px; letter-spacing: .22em; opacity: .8; color: var(--aqua); }
 #vessel-mode.land { color: var(--sun); }
@@ -276,7 +300,32 @@ h1 {
 
 /* ── touch controls ──────────────────────────────────────────── */
 /* Hidden by default; `.touch-mode` (set on first touch) reveals them. */
-#mobile-actions, #mobile-fire, #touch-hint { display: none; }
+#mobile-actions, #mobile-fire, #mobile-boost, #touch-hint { display: none; }
+
+/* Floating virtual joystick — springs up under the thumb. */
+#joy-base {
+  position: fixed;
+  width: 132px; height: 132px;
+  margin: -66px 0 0 -66px;               /* centre on the touch point */
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .10), rgba(8, 14, 34, .38));
+  border: 2px solid rgba(255, 255, 255, .22);
+  z-index: 16;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+#joy-base.on { opacity: 1; }
+#joy-knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 62px; height: 62px;
+  margin: -31px 0 0 -31px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, #ffe6a8, #ffd166);
+  border: 2px solid rgba(255, 255, 255, .5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .4);
+}
 
 body.touch-mode #mobile-actions {
   display: flex;
@@ -324,9 +373,28 @@ body.touch-mode #mobile-fire {
   font-size: 11px; letter-spacing: .16em; font-weight: 800;
 }
 #mobile-fire:active { transform: translateY(5px); box-shadow: 0 3px 0 #9c2437; }
-/* Only the turret vessel needs a fire button front-and-centre; others still
-   get it but smaller (forward guns fire straight ahead). */
-body.touch-mode.no-turret #mobile-fire { width: 78px; height: 78px; font-size: 24px; bottom: 120px; }
+
+/* NITRO button sits above FIRE on the right. */
+body.touch-mode #mobile-boost {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  right: 38px;
+  bottom: 224px;
+  width: 78px; height: 78px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .22);
+  background: radial-gradient(circle at 50% 38%, #86e6dd, #2ba99c);
+  color: #04302b;
+  font-size: 30px; font-weight: 900;
+  box-shadow: 0 7px 0 #17766c, 0 12px 22px rgba(0, 0, 0, .4);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+#mobile-boost span { position: absolute; bottom: 12px; font-size: 10px; letter-spacing: .14em; font-weight: 800; }
+#mobile-boost:active { transform: translateY(4px); box-shadow: 0 3px 0 #17766c; }
 
 body.touch-mode #touch-hint {
   display: block;

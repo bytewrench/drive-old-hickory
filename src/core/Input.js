@@ -12,8 +12,6 @@ export class Input {
 
     /** Normalised device coords of the pointer, for turret aiming. */
     this.ndc = { x: 0, y: 0 };
-    this.firing = false;
-    this.firePressed = false;
     this.enabled = false;
 
     /**
@@ -33,30 +31,19 @@ export class Input {
       if (SWALLOW.has(e.code)) e.preventDefault();
     };
     this._onKeyUp = (e) => { this.down.delete(e.code); };
-    this._onBlur = () => { this.down.clear(); this.firing = false; };
+    this._onBlur = () => { this.down.clear(); };
 
+    // The mouse is for navigation (slingshot) and turret aim — never firing.
+    // Firing is its own trigger: SPACE on desktop, the FIRE button on mobile.
     this._onMove = (e) => {
       this.ndc.x = (e.clientX / innerWidth) * 2 - 1;
       this.ndc.y = -(e.clientY / innerHeight) * 2 + 1;
-    };
-    this._onDown = (e) => {
-      // Touch pointers belong to MobileControls (steering + slingshot); only
-      // a real mouse click fires the cannon this way.
-      if (!this.enabled || e.button !== 0 || e.pointerType === 'touch') return;
-      this.firing = true;
-      this.firePressed = true;
-    };
-    this._onUp = (e) => {
-      if (e.pointerType === 'touch') return;
-      if (e.button === 0) this.firing = false;
     };
 
     addEventListener('keydown', this._onKeyDown, { passive: false });
     addEventListener('keyup', this._onKeyUp);
     addEventListener('blur', this._onBlur);
     addEventListener('pointermove', this._onMove);
-    canvas.addEventListener('pointerdown', this._onDown);
-    addEventListener('pointerup', this._onUp);
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
@@ -97,14 +84,12 @@ export class Input {
   }
 
   consumeFire() {
-    // Space is edge-triggered; the mouse button auto-repeats via `firing`;
-    // the on-screen FIRE button queues one shot per tap.
-    const space = this.consume('Space');
-    const click = this.firePressed;
+    // SPACE (desktop — held auto-repeats at the weapon cooldown) or the
+    // on-screen FIRE button (mobile). Never the mouse: the mouse navigates.
+    const space = this.down.has('Space');
     const btn = this.fireQueued;
-    this.firePressed = false;
     this.fireQueued = false;
-    return space || click || btn || this.firing;
+    return space || btn;
   }
 
   endFrame() {
@@ -116,7 +101,6 @@ export class Input {
     removeEventListener('keyup', this._onKeyUp);
     removeEventListener('blur', this._onBlur);
     removeEventListener('pointermove', this._onMove);
-    removeEventListener('pointerup', this._onUp);
   }
 }
 

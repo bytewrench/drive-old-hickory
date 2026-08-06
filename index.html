@@ -28,8 +28,8 @@
       <div class="controls-grid">
         <div><b>W A S D</b><span>drive / steer</span></div>
         <div><b>SHIFT</b><span>mega-nitro</span></div>
-        <div><b>MOUSE</b><span>aim turret</span></div>
-        <div><b>CLICK / SPACE</b><span>fire cannon</span></div>
+        <div><b>MOUSE DRAG</b><span>slingshot / aim</span></div>
+        <div><b>SPACE</b><span>fire cannon</span></div>
         <div><b>1 – 4</b><span>swap vessel</span></div>
         <div><b>R</b><span>back to the ramp</span></div>
         <div><b>T</b><span>day / synthwave night</span></div>
@@ -42,6 +42,7 @@
       <div id="hud-topleft">
         <div id="vessel-name">SPEEDBOAT</div>
         <div id="vessel-mode">◈ WATER MODE</div>
+        <button id="sound-toggle" aria-label="Sound on/off">🔊<span>SOUND</span></button>
       </div>
 
       <div id="hud-topright">
@@ -72,8 +73,9 @@
         <button class="mbtn" data-act="night" aria-label="Day / night">☀</button>
         <button class="mbtn" data-act="cam" aria-label="Camera">🎥</button>
       </div>
+      <button id="mobile-boost" aria-label="Boost">»<span>NITRO</span></button>
       <button id="mobile-fire" aria-label="Fire">✦<span>FIRE</span></button>
-      <div id="touch-hint">Tap the water to steer · pull back &amp; release to slingshot</div>
+      <div id="touch-hint">Left thumb = joystick to drive · right side aims · NITRO &amp; FIRE buttons</div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

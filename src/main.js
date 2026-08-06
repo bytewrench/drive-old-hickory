@@ -136,26 +136,46 @@ function spawnVessel(index, keepTransform = true) {
 // Wire the on-screen touch buttons and make the vessel pills tappable.
 // ──────────────────────────────────────────────────────────────
 function buildMobileHud() {
-  const fire = document.getElementById('mobile-fire');
-  // Hold-to-fire: keep the queue set while the button is held.
-  let firing = false;
-  const startFire = (e) => { e.preventDefault(); firing = true; game.audio?.start(); };
-  const stopFire = () => { firing = false; };
-  fire.addEventListener('pointerdown', startFire);
-  fire.addEventListener('pointerup', stopFire);
-  fire.addEventListener('pointercancel', stopFire);
-  fire.addEventListener('pointerleave', stopFire);
+  // Hold-to-fire and hold-to-boost.
+  const holdButton = (id, set) => {
+    const el = document.getElementById(id);
+    const on = (e) => { e.preventDefault(); e.stopPropagation(); set(true); game.audio?.start(); };
+    const off = () => set(false);
+    el.addEventListener('pointerdown', on);
+    el.addEventListener('pointerup', off);
+    el.addEventListener('pointercancel', off);
+    el.addEventListener('pointerleave', off);
+  };
+  let firing = false, boosting = false;
+  holdButton('mobile-fire', (v) => { firing = v; });
+  holdButton('mobile-boost', (v) => { boosting = v; });
   game._holdFire = () => firing;
+  game._holdBoost = () => boosting;
 
   document.querySelectorAll('#mobile-actions .mbtn').forEach((btn) => {
     btn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const act = btn.dataset.act;
-      if (act === 'reset') { game.vessel?.reset(); game.mobile.target = null; game.hud.toast('BACK AT HUNTERS POINT'); }
+      if (act === 'reset') { game.vessel?.reset(); game.hud.toast('BACK AT HUNTERS POINT'); }
       else if (act === 'night') { game.nightTarget = game.nightTarget > 0.5 ? 0 : 1; }
       else if (act === 'cam') { game.engine.camDistance = (game.engine.camDistance + 1) % 3; }
       game.audio?.whoosh();
     });
+  });
+
+  // Sound on/off — always visible, works on desktop and mobile.
+  const sound = document.getElementById('sound-toggle');
+  const syncSound = () => {
+    const muted = game.audio.muted;
+    sound.classList.toggle('muted', muted);
+    sound.firstChild.textContent = muted ? '🔇' : '🔊';
+  };
+  sound.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    game.audio.start();                 // first tap also unlocks the audio context
+    const muted = game.audio.toggleMute();
+    syncSound();
+    game.hud.toast(muted ? 'SOUND OFF' : 'SOUND ON');
   });
 
   // Tapping a vessel pill swaps to it (mobile equivalent of keys 1–4).
@@ -269,10 +289,7 @@ function frame() {
   const v = game.vessel;
 
   // ── touch controls: write virtual axes + turret aim before physics ──
-  if (game.running && game.mobile.enabled) {
-    game.mobile.update(dt);
-    if (game._holdFire && game._holdFire()) input.fireQueued = true;
-  }
+  if (game.running && game.mobile.enabled) game.mobile.update();
 
   // ── fixed-step physics ──
   accumulator += dt;
@@ -363,9 +380,11 @@ function handleHotkeys(input) {
   }
 
   if (input.consume('KeyM')) {
-    game.audio.muted = !game.audio.muted;
-    if (game.audio.muted) game.audio.updateEngine(0, 0, false, true);
-    game.hud.toast(game.audio.muted ? 'MUTED' : 'UNMUTED');
+    const muted = game.audio.toggleMute();
+    document.getElementById('sound-toggle')?.classList.toggle('muted', muted);
+    const st = document.getElementById('sound-toggle');
+    if (st) st.firstChild.textContent = muted ? '🔇' : '🔊';
+    game.hud.toast(muted ? 'SOUND OFF' : 'SOUND ON');
   }
 }
 

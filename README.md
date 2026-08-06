@@ -85,21 +85,29 @@ npm run preview
 
 ---
 
-## Controls (touch)
+## Controls
 
-On phones/tablets the game switches to a **tap-target + slingshot** scheme the
-first time you touch the screen:
+Two schemes run side by side, picked by what you're using — and **firing is
+its own trigger, never the navigation pointer**.
 
-- **Tap the water** where you want to go — the boat auto-steers and throttles to
-  a reticle there. Tap ahead again to follow the river's bends.
-- **Pull back & release** (slingshot) — drag away from the boat to draw a
-  slingshot band; the arrow points the opposite way (your launch heading).
-  Release to fling the boat that way with a nitro burst, power scaled by pull.
-- **FIRE** button (hold to auto-fire); the Dreadnought's turret auto-aims at
-  your target. Small buttons for reset / day-night / camera; tap the vessel
-  pills to swap boats.
+**Mouse (desktop) — slingshot navigation**
+- **Click** the water to set a drive-to target (a reticle marks it); the boat
+  auto-steers and throttles there.
+- **Drag & release** — pull away from the boat to draw a slingshot, release to
+  fling it the opposite way with a nitro burst (power = pull length).
+- **SPACE** fires the cannon. The mouse also aims the Dreadnought's turret.
+- **W A S D** still work any time — pressing them hands control straight back
+  to the keyboard. **Shift** = nitro.
 
-## Controls (keyboard)
+**Touch (mobile) — virtual joystick**
+- **Left thumb** spawns a floating joystick — push to steer + throttle
+  (up = forward, down = reverse).
+- **Right side** aims the turret. **NITRO** and **FIRE** buttons on the right.
+- Small buttons for reset / day-night / camera; tap the vessel pills to swap.
+
+**Everywhere:** the **SOUND** button (top-left) toggles audio — also `M`.
+
+## Controls (keyboard reference)
 
 | Input | Action |
 | --- | --- |
