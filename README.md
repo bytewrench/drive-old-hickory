@@ -137,8 +137,8 @@ comfort. The vessels are hard to flip and self-right within ~1 s after a flub.
 | `1` – `5` | Swap vessel instantly, in place |
 | `R` | Reset to Hunters Point Boat Dock (also repairs the hull) |
 | `T` | Sunny morning ⇄ synthwave night — shared with the room |
-| `C` | Cycle camera distance |
-| `V` | Chase view ⇄ **helm (first person)** |
+| `C` | Cycle camera distance (close · default · wide) |
+| `V` | Chase view ⇄ **helm (first person)** — or the view pill, top-left |
 | `X` | Handbrake (kills grip — drift on land) |
 | `M` | Mute |
 
@@ -148,15 +148,17 @@ comfort. The vessels are hard to flip and self-right within ~1 s after a flub.
 
 | # | Vessel | Mass | Weapon | Ashore | Character |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Bowrider | 1.3 t | Light forward gun | **Trailer gear** — four wheels swing down | Fastest boat, 175 km/h down the river |
-| 2 | Bollard | 91 t | Dual broadside cannons | **Dozer gear** — oversized tyres | Ruinous plow force, answers like a continent |
+| 1 | Bowrider | 1.3 t | Light forward gun | Roller bumpers — inflatable fenders | Fastest boat, 175 km/h down the river |
+| 2 | Bollard | 91 t | Dual broadside cannons | Anchor crawl — winches itself along | Ruinous plow force, answers like a continent |
 | 3 | Fanjack | 1.6 t | Light forward gun | Just keeps going — flat pan, no gear | Rides pads over water *and* land, skates |
 | 4 | Skimmer | 32 t | 360° mouse-aimed turret | Stilt walk — the foils become legs | 26 m blast radius, heavy and deliberate |
 | 5 | **Osprey** | 1.0 t | Nose gun | Beach skid — it has no undercarriage | **Flies.** Takes off at ~145 km/h |
 
-Land traversal is deliberately **per-vessel**: two hulls grow real running
-gear, three cope with the shore in their own idiom, and the aeroplane's answer
-to being on land is to stop being on land.
+**No wheels, ever.** Every hull copes with the shore in its own idiom — rollers,
+an anchor winch, a flat pan, stilts, or a keel to slide on. Visible running gear
+was tried and removed: a boat that grows wheels stops reading as a boat. The
+raycast suspension still runs underneath (it is what makes land traversal work
+at all), but its pivots are invisible.
 
 ### The Osprey actually flies
 
@@ -192,9 +194,53 @@ Held at full elevator it will still zoom-climb to ~60 m, stall, and recover —
 that is correct, and it is how you learn to fly it. Eased back to about a third
 it cruises at 177 km/h, climbs to 50 m, and holds an 86° banked turn.
 
+### Planing, and why they used to sink
+
+Hulls ride **higher** the faster they go. That sounds obvious, and the code did
+the exact opposite for a long time: a force called `settle` pushed the boat
+*down*, scaled by speed, so a Bowrider above 26 m/s took an extra 7 m/s² of
+downward pull against gravity's 24 — roughly 29% extra weight, the faster you
+went. There was no planing lift anywhere in the file.
+
+`settle` existed for a real reason — a light hull skipping off wave crests at
+speed is uncontrollable — but the cure for skipping is damping vertical
+*velocity*, not pressing the hull under. Those are now two separate terms: lift
+(`planeAt` / `planeLift`, plus a bounded `trimDeg` servo for bow rise) and
+damping (`launchDamp`), which can only ever resist motion and never push down.
+
+Measured draft change from rest to a sustained full-throttle turn:
+
+| Vessel | At rest | Planing | Change |
+| --- | --- | --- | --- |
+| Bowrider | 0.44 | 0.28 | **−37%** |
+| Skimmer | 0.46 | 0.21 | **−55%** — foils, as they should |
+| Osprey | 0.48 | 0.27 | **−45%** — up on the step |
+| Bollard | 0.42 | 0.35 | **−15%** — a displacement hull does not plane |
+
+### Boats bank into a corner
+
+`heelWant` was unnegated, which asked for starboard-up in a starboard turn —
+leaning *away* from the corner, the way a car rolls on its springs. Boats do
+the opposite.
+
+Fixing the sign was necessary but not sufficient. The eight buoyancy probes at
+the hull corners generate a metacentric righting moment several times stronger
+than the old `heelServo` of ~7 could push against, so the intended bank was
+being flattened to under a degree. The gain is now ~100, with a rate term to
+keep it from oscillating at that stiffness. Sustained-turn roll now measures
+−4.9°/+2.4° (Bowrider), −3.0°/+1.1° (Bollard), −8.6°/+8.9° (Osprey), all into
+the turn.
+
+The **Fanjack is the exception** and still banks outward. Its roll comes from
+hover-pad reaction rather than the hull's heel servo, and it is a skating
+hovercraft rather than a displacement boat, so leaning out of a power-slide
+suits it. It was reined in from ~40° to ~30° and no longer capsizes.
+
 ## Helm view
 
-`V` (or the 📷 button on touch, which now walks all four states) drops you to
+`V`, or the **view pill beside SOUND** — always on screen, on desktop and touch
+alike, and lit up while you are at the helm. (The mobile 🎥 button now only
+cycles chase distance; it no longer has to carry both jobs.) Either drops you to
 the wheel. Each vessel declares a `helm` eye point in the catalog, built as an
 `Object3D` **inside** the rig so it inherits the catalog→physics rescale — a
 raw catalog coordinate would be wrong by the wrap scale factor.
@@ -246,9 +292,16 @@ texel and let the bias drop to 0.045.
 
 **The depth buffer was spent on empty space.** The sky dome was map-sized —
 radius 53 km — which forced the far plane to 123,200 against a near of 0.5, a
-246,400:1 ratio, for a scene that fog makes fully opaque past about 2 km. The
-dome follows the player, so it only has to out-range the fog: at 7 km, with a
-9 km far plane, depth resolution improves roughly 27×.
+246,400:1 ratio. The dome follows the player, so it only has to out-range the
+fog; it and the far plane came in to 13 km / 16 km, which is still a large gain
+in depth resolution and leaves room for the longer view below.
+
+**You could not see far enough.** Fog density of 0.00105 put the horizon at
+roughly 2 km — close enough that the far bank and the bridges downriver were a
+wall of haze on a 56 km map. At 0.00040 the view opens to ~5 km. The chase
+camera was also sitting ~30° above the horizontal, so most of the frame was the
+water immediately around the boat; flattened to ~19° you look *down* the river
+rather than down *at* it.
 
 Two smaller ones: bloom was being re-sized to CSS pixels *after* the composer
 had already applied device pixel ratio, halving its mip chain on a retina

@@ -106,6 +106,9 @@ export const VESSELS = [
           sectionAft: 5.5, sectionFwd: 1.30, flare: 0.24,
           sheer: 0.52, sheerAft: 0.12, rocker: 0.95, rockerAft: 0.05,
           transom: 0.80, entry: 1.90, beamPeak: 0.54, deck: false,
+          // Cockpit floor, ~0.24 m clear of the static waterline. Without it
+          // the water plane draws straight across the inside of the boat.
+          soleAt: 0.22,
         },
         opts: { finish: 'gloss', doubleSided: true },
       },
@@ -147,20 +150,23 @@ export const VESSELS = [
       { name: 'skeg',        geom: 'wedge', args: [0.10, 0.34, 0.55], pos: [0, -0.62, -2.28],  color: 'dark', opts: { finish: 'metal' } },
       // A real screw instead of a flat disc.
       { name: 'prop',        geom: 'prop',  shape: { radius: 0.26, blades: 4, hub: 0.055, pitch: 0.6 }, pos: [0, -0.42, -2.58], color: 'accent', opts: { spin: 'prop', finish: 'metal' } },
+      // Land gear, hidden until beached — inflatable rollers, not wheels.
+      { name: 'rollerFwd',   geom: 'cyl',   args: [0.34, 0.34, 1.90, 14], pos: [0, -0.34, 1.45], rot: [0, 0, P / 2], color: 'accent', opts: { group: 'landgear', showOnLand: true, spin: 'prop', finish: 'rubber' } },
+      { name: 'rollerAft',   geom: 'cyl',   args: [0.34, 0.34, 1.90, 14], pos: [0, -0.34, -1.35], rot: [0, 0, P / 2], color: 'accent', opts: { group: 'landgear', showOnLand: true, spin: 'prop', finish: 'rubber' } },
     ],
 
     landMode: {
-      id: 'wheel_deploy',
-      name: 'Trailer Gear',
+      id: 'roller_bumpers',
+      name: 'Roller Bumpers',
       description:
-        'Four wheels swing down out of the topsides on trailing arms and the ' +
-        'hull settles onto them. Quick in a straight line, still steers like a ' +
-        'boat that has been asked to do something unreasonable.',
+        'Two inflatable fenders bang out of the topsides and drop under the ' +
+        'keel. The boat rolls forward like a rolling pin — quick in a straight ' +
+        'line, terrible at turning, and it visibly bounces over every rock.',
       deploySeconds: 0.8,
-      animation: 'wheels unfold from the hull sides, hull drops and pitches nose-down',
-      motion: { style: 'rolling', bounceAmpl: 0.05, bounceHz: 4.5, yawLagDeg: 22 },
+      animation: 'fenders punch outward, hull drops onto them, hull pitches nose-down 8deg',
+      motion: { style: 'rolling', bounceAmpl: 0.09, bounceHz: 4.5, yawLagDeg: 22 },
       sfx: ['pneumatic_thunk', 'rubber_rumble_loop'],
-      vfx: ['dust_puff_on_deploy', 'dirt_spray_from_wheels'],
+      vfx: ['dust_puff_on_deploy', 'dirt_spray_from_rollers'],
     },
   },
 
@@ -213,6 +219,7 @@ export const VESSELS = [
           sectionAft: 8.0, sectionFwd: 4.2, flare: 0.10,
           sheer: 0.55, sheerAft: 0.05, rocker: 1.00, rockerAft: 0.02,
           transom: 0.96, entry: 1.15, beamPeak: 0.45, deck: false,
+          soleAt: 0.11,       // flat pan sits low, so its floor does too
         },
         opts: { finish: 'satin', doubleSided: true },
       },
@@ -338,21 +345,24 @@ export const VESSELS = [
       { name: 'fenderStbd',  geom: 'cyl',   args: [0.26, 0.26, 3.20, 12], pos: [1.24, 0.60, -0.30],  rot: [P / 2, 0, 0], color: 'dark', opts: { finish: 'rubber' } },
       { name: 'prop',        geom: 'prop',  shape: { radius: 0.44, blades: 4, hub: 0.10, pitch: 0.7 }, pos: [0, -0.62, -2.52], color: 'accent', opts: { spin: 'prop', finish: 'metal' } },
       { name: 'rudder',      geom: 'foil',  shape: { span: 0.78, chord: 0.58, thickness: 0.16, taper: 0.9, segments: 5 }, pos: [0, -0.48, -2.78], rot: [0, 0, P / 2], color: 'dark', opts: { finish: 'metal' } },
+      // Land gear: the anchor it winches itself along on.
+      { name: 'anchorShank', geom: 'cyl',   args: [0.08, 0.08, 1.10, 10], pos: [0, 0.40, 3.10], rot: [P / 2, 0, 0], color: 'accent', opts: { group: 'landgear', showOnLand: true, finish: 'metal' } },
+      { name: 'anchorFluke', geom: 'wedge', args: [0.80, 0.18, 0.60], pos: [0, 0.26, 3.70], color: 'accent', opts: { group: 'landgear', showOnLand: true, finish: 'metal' } },
     ],
 
     landMode: {
-      id: 'wheel_deploy',
-      name: 'Dozer Gear',
+      id: 'anchor_crawl',
+      name: 'Anchor Crawl',
       description:
-        'Four absurdly oversized tyres drop out of the skirts and the whole ' +
-        '91-tonne hull settles onto them. It does not so much drive overland ' +
-        'as evict it. Slow to wind up, impossible to stop, and it flattens ' +
-        'anything it meets.',
+        'The tug cannot drive on land, so it cheats. It fires its anchor ' +
+        'forward, bites the dirt, and winches its own hull along in lurching ' +
+        'one-boat-length heaves. Slowest thing in the game overland and the ' +
+        'funniest to watch.',
       deploySeconds: 1.2,
-      animation: 'tyres crank down out of the hull skirts, hull settles heavily onto them',
-      motion: { style: 'rolling', bounceAmpl: 0.04, bounceHz: 2.2, yawLagDeg: 55 },
-      sfx: ['hydraulic_crank', 'hull_scrape_gravel', 'diesel_lug'],
-      vfx: ['gouged_earth_trench_decal', 'dust_wall_from_tyres'],
+      animation: 'anchor launches on a taut line, bites, hull drags forward in a 3-beat lurch cycle',
+      motion: { style: 'lurching', cyclePeriod: 1.35, lurchDistance: 4.2, yawLagDeg: 55 },
+      sfx: ['chain_ratchet', 'hull_scrape_gravel', 'diesel_lug'],
+      vfx: ['gouged_earth_trench_decal', 'taut_line_between_anchor_and_bow'],
     },
   },
 

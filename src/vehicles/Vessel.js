@@ -331,11 +331,42 @@ export class Vessel {
       const thrust = W.thrust * m * drive * boostMul * s;
       this.addForceAt(this.fwd.x * thrust, this.fwd.y * thrust, this.fwd.z * thrust, sternLocal);
 
-      // Hydrodynamic settling: the faster you go, the harder the hull is
-      // sucked onto the water. Without this a light hull launches off every
-      // wave crest at speed and spends the turn airborne and uncontrollable.
-      const planted = clamp(this.speed / 26, 0, 1) * W.settle * m * s;
-      this.body.addForce({ x: 0, y: -planted, z: 0 }, true);
+      // ── planing ────────────────────────────────────────────
+      // A planing hull climbs its own bow wave and rides HIGHER the faster it
+      // goes: dynamic pressure on the deadrise lifts it, wetted area shrinks,
+      // draft falls. This used to do the exact opposite — a downward force
+      // scaled by speed, so every boat was pressed deeper the faster it went.
+      //
+      // That force was there for a real reason (a light hull skipping off wave
+      // crests at speed is uncontrollable), but the cure for skipping is
+      // damping vertical VELOCITY, not pressing the hull under. The two are
+      // separated here: lift below, damping after it.
+      const planeAt = W.planeAt ?? 11;
+      const pf = clamp((Math.abs(vf) - planeAt * 0.35) / planeAt, 0, 1);
+
+      if (pf > 0) {
+        // Applied at the centre of mass so it changes draft without pitching.
+        // Trim gets its own bounded servo below — the same pattern the heel
+        // servo uses, and for the same reason: a raw torque would just keep
+        // rotating. Fading on min(1, s*3) keeps lift at full strength through
+        // normal planing and only cuts it once the hull is genuinely clear.
+        const lift = pf * pf * (W.planeLift ?? 9) * m * Math.min(1, s * 3);
+        this.body.addForce({ x: 0, y: lift, z: 0 }, true);
+
+        // Bow rise onto a target trim angle. Rotation about `right` maps
+        // +Z toward -Y, i.e. positive torque pitches the bow DOWN — hence the
+        // negation to drive fwd.y up toward the target.
+        const trimNow = Math.asin(clamp(this.fwd.y, -1, 1));
+        const trimWant = (W.trimDeg ?? 4) * (Math.PI / 180) * pf;
+        const tq = -(trimWant - trimNow) * (W.trimServo ?? 2.6) * m * s;
+        this.body.addTorque({ x: this.right.x * tq, y: 0, z: this.right.z * tq }, true);
+      }
+
+      // Vertical damping that grows as the hull comes onto the plane. This is
+      // what actually stops it launching off crests, and unlike a downward
+      // force it can never push the boat under — it only resists movement.
+      const vDamp = (W.launchDamp ?? 3.0) * (0.3 + pf) * m * s;
+      this.body.addForce({ x: 0, y: -vy * vDamp, z: 0 }, true);
 
       // Rudder authority scales with how fast water flows past the blade, so
       // the boat goes slack when you cut the throttle — as it should. Kept
@@ -358,9 +389,20 @@ export class Vessel {
       // Heel into the turn — but as a servo onto a target *angle*, not a raw
       // torque. A constant roll torque against a rate-damper settles at a
       // constant roll *rate*, which just rolls the boat over and over.
+      // Boats bank INTO a turn — the hull digs in on the inside and the
+      // outside rides up. `right.y > 0` means the starboard side is raised,
+      // and steerCmd > 0 is a turn to starboard, so the unnegated form asked
+      // for starboard-up in a starboard turn: leaning OUT of the corner, the
+      // way a car rolls on its springs. The negation is the whole fix.
       const heelNow = Math.asin(clamp(this.right.y, -1, 1));
-      const heelWant = this.steerCmd * clamp(flow / 26, 0, 1) * W.heel;
-      const heelTorque = (heelWant - heelNow) * W.heelServo * m * s;
+      const heelWant = -this.steerCmd * clamp(flow / 26, 0, 1) * W.heel;
+      // The gain has to be large (~85, not ~7): the eight buoyancy probes at
+      // the hull corners produce a metacentric righting moment several times
+      // stronger than the old servo could push against, so the intended bank
+      // was being flattened to under a degree. A rate term keeps it from
+      // oscillating at that gain.
+      const heelTorque = ((heelWant - heelNow) * W.heelServo
+        - this.angVel.dot(this.fwd) * (W.heelDamp ?? 9)) * m * s;
       this.body.addTorque({
         x: this.fwd.x * heelTorque, y: 0, z: this.fwd.z * heelTorque,
       }, true);
@@ -429,8 +471,12 @@ export class Vessel {
       // Self-righting is exactly wrong for an aircraft — it would fight every
       // bank and make a turn impossible. In flight the aerodynamic model
       // provides its own stability instead.
-      const upK = flying ? 0 : Math.max(wet * 6.5, grounded * (c.land.uprightK ?? 6.0),
-        this.mode === MODE.AIR ? 4.5 : 0) * (1 + heeling * 2.2);
+      // Base self-righting eased from 6.5 to 4.0 on the water. At 6.5 it drove
+      // *every* tilt to level hard enough to flatten the deliberate bank into
+      // a turn down to well under a degree. Capsize protection is unaffected:
+      // that comes from the `heeling` ramp below, which only bites past ~45°.
+      const upK = flying ? 0 : Math.max(wet * 4.0, grounded * (c.land.uprightK ?? 6.0),
+        this.mode === MODE.AIR ? 4.5 : 0) * (1 + heeling * 3.0);
       if (upK > 0) this._uprightTorque(m, upK);
 
       // The floor matters: airborne is exactly when a tumble runs away, and a

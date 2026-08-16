@@ -79,6 +79,9 @@ export function makeHull(THREE, opts = {}) {
     beamPeak = 0.56,    // where max beam sits, 0 = transom, 1 = stem
     deckCamber = 0.05,
     deck = true,
+    // Height of the interior sole (cockpit floor). See the block that builds
+    // it near the bottom of this function for why open boats need one.
+    soleAt = null,
   } = opts;
 
   const stations = Math.max(8, Math.round(_stations * LOFT_SCALE));
@@ -174,6 +177,50 @@ export function makeHull(THREE, opts = {}) {
         // instead of reading as a flat lid.
         const crown = deckCamber * B * (1 - Math.pow(f * 2 - 1, 2));
         pos.push(x, sY + crown, z);
+      }
+    }
+    for (let i = 0; i < stations; i++) {
+      for (let k = 0; k < K; k++) {
+        const a = base + i * (K + 1) + k;
+        const b = base + (i + 1) * (K + 1) + k;
+        idx.push(a, b, b + 1, a, b + 1, a + 1);
+      }
+    }
+  }
+
+  // ── interior sole ────────────────────────────────────────────
+  // An open boat with no floor is see-through down to below its own waterline,
+  // and the water surface — one big plane that knows nothing about hulls —
+  // then draws right across the interior. The result reads as water sloshing
+  // around inside the boat.
+  //
+  // The fix is the same thing that keeps a real boat dry: a sole ABOVE the
+  // waterline. Being opaque and nearer the camera than the water plane, it
+  // wins the depth test and hides it. This has to follow the hull exactly or
+  // the gaps at its edges leak, so the section curve is inverted to get the
+  // true half-width at the sole height rather than approximated with a box.
+  if (soleAt != null) {
+    const K = ribs * 2;
+    const base = pos.length / 3;
+    for (let i = 0; i <= stations; i++) {
+      const t = i / stations;
+      const z = (t - 0.5) * len;
+      const B = widthAt(t), kY = keelAt(t), sY = sheerAt(t), n = sectionAt(t);
+
+      let half = 0;
+      if (soleAt >= sY) {
+        half = B * (1 + flare);
+      } else if (soleAt > kY) {
+        // Invert y = keelY + (sheerY - keelY)(1 - cos(th)^(2/n)) for th,
+        // then evaluate the same x the skin uses.
+        const q = (soleAt - kY) / (sY - kY);
+        const th = Math.acos(Math.min(1, Math.pow(Math.max(1 - q, 1e-6), n / 2)));
+        const u = th / (Math.PI * 0.5);
+        half = B * Math.pow(Math.max(Math.sin(th), 1e-5), 2 / n) * (1 + flare * u * u * u);
+      }
+
+      for (let k = 0; k <= K; k++) {
+        pos.push((k / K * 2 - 1) * half, soleAt, z);
       }
     }
     for (let i = 0; i < stations; i++) {

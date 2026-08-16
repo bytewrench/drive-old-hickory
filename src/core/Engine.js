@@ -12,9 +12,9 @@ import { LAYER_HULL } from '../config.js';
 // spent the entire depth buffer on empty space. The dome follows the player, so
 // it only has to out-range the fog — and a 9 km far plane is ~27x the depth
 // resolution of the old one.
-const SKY_RADIUS = 7000;
-const STAR_RADIUS = 6600;
-const CAM_FAR = 9000;
+const SKY_RADIUS = 13000;
+const STAR_RADIUS = 12400;
+const CAM_FAR = 16000;
 const CAM_NEAR = 0.3;
 const CAM_NEAR_FP = 0.12;      // cockpit view sits inches from geometry
 
@@ -41,7 +41,11 @@ const DAY = {
   // washed the contrast back out.
   hemiIntensity: 0.80,
   ambient: 0.20,
-  fogDensity: 0.00105,
+  // Thinned from 0.00105, which put the horizon at roughly 2 km — close enough
+  // that the far bank and the bridges downriver were a wall of haze. At
+  // 0.00040 the view opens out to ~5 km, which is what actually makes a 56 km
+  // map feel like one.
+  fogDensity: 0.00040,
   bloom: 0.34,
 };
 
@@ -55,7 +59,7 @@ const NIGHT = {
   hemiGround: new THREE.Color('#1b0736'),
   hemiIntensity: 0.55,
   ambient: 0.18,
-  fogDensity: 0.0019,
+  fogDensity: 0.00075,
   bloom: 1.45,
 };
 
@@ -402,14 +406,22 @@ export class Engine {
     const target = vessel.position;
     const { heading, speed, boosting } = vessel;
 
-    const dist = [32, 44, 60][Math.round(this.camDistance)] ?? 44;
-    const height = [18, 25, 35][Math.round(this.camDistance)] ?? 25;
+    const dist = [34, 48, 66][Math.round(this.camDistance)] ?? 48;
+    // Flattened from [18, 25, 35]. Those put the eye ~30° above the horizontal,
+    // so most of the frame was the water immediately around the boat and the
+    // horizon was squeezed into a strip at the top. At ~19° you look down the
+    // river rather than down at it, which is what actually opens the view up.
+    const height = [12, 16, 23][Math.round(this.camDistance)] ?? 16;
 
     // Smoothly chase the vessel's heading so tight turns don't whip the camera.
     let dy = heading - this.camYaw;
     while (dy > Math.PI) dy -= Math.PI * 2;
     while (dy < -Math.PI) dy += Math.PI * 2;
-    this.camYaw += dy * (1 - Math.exp(-3.4 * dt));
+    // Slowed from 3.4. A 34° lens shows ~1.46x more apparent motion per degree
+    // of yaw than the old 48° one, so the same camera follow rate reads as
+    // considerably twitchier through the narrower lens. Letting the camera lag
+    // further behind the hull is most of what makes a turn feel unhurried.
+    this.camYaw += dy * (1 - Math.exp(-2.3 * dt));
 
     // Speed reads as the camera DOLLYING BACK, not the lens widening. Punching
     // FOV to 76 under boost distorted the whole frame and undid the long-lens
@@ -432,7 +444,7 @@ export class Engine {
     this.camLook.lerp(
       new THREE.Vector3(
         target.x + Math.sin(this.camYaw) * (4 + speed * 0.18),
-        target.y + 2.5,
+        target.y + 4.0,
         target.z + Math.cos(this.camYaw) * (4 + speed * 0.18),
       ),
       k,
@@ -479,7 +491,7 @@ export class Engine {
   _updateShadow(target, speed) {
     const want = this.camView === CAM_VIEW.FIRST
       ? 46
-      : 34 + ([32, 44, 60][Math.round(this.camDistance)] ?? 44) * 0.55;
+      : 34 + ([34, 48, 66][Math.round(this.camDistance)] ?? 48) * 0.55;
 
     if (Math.abs(want - this.shadowExtent) > 0.5) {
       this.shadowExtent += (want - this.shadowExtent) * 0.1;

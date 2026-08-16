@@ -192,8 +192,13 @@ h1 {
 
 #hud-topleft { top: 20px; left: 22px; }
 
-/* Always-visible sound on/off — works on desktop and mobile. */
-#sound-toggle {
+/* Always-visible pills — these work on desktop and mobile alike. The view
+   toggle lives here rather than only on the mobile button strip because
+   first person was otherwise reachable only by knowing the V key. */
+#hud-toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+
+#sound-toggle,
+#view-toggle {
   margin-top: 12px;
   display: inline-flex;
   align-items: center;
@@ -212,9 +217,13 @@ h1 {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-#sound-toggle span { font-size: 11px; letter-spacing: .16em; opacity: .8; }
-#sound-toggle:active { transform: scale(.94); }
+#sound-toggle span,
+#view-toggle span { font-size: 11px; letter-spacing: .16em; opacity: .8; }
+#sound-toggle:active,
+#view-toggle:active { transform: scale(.94); }
 #sound-toggle.muted { border-color: rgba(255, 93, 115, .5); color: #ff9aa8; opacity: .85; }
+/* Lit up while you are at the helm, so the current view is never ambiguous. */
+#view-toggle.first { border-color: rgba(78, 205, 196, .65); color: var(--aqua); background: rgba(78, 205, 196, .16); }
 #vessel-name { font-size: 22px; font-weight: 900; letter-spacing: .1em; text-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
 #vessel-mode { margin-top: 3px; font-size: 11px; letter-spacing: .22em; opacity: .8; color: var(--aqua); }
 #vessel-mode.land { color: var(--sun); }

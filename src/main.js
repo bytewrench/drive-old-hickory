@@ -220,13 +220,11 @@ function buildMobileHud() {
       if (act === 'reset') { game.vessel?.reset(); game.hud.toast('BACK AT HUNTERS POINT'); }
       else if (act === 'night') { setNight(game.nightTarget <= 0.5); }
       else if (act === 'cam') {
-        // Mobile has no keyboard, so the one camera button walks the whole set:
-        // three chase distances, then the helm view, then back.
-        const e = game.engine;
-        if (e.camView === CAM_VIEW.FIRST) { e.setView(CAM_VIEW.CHASE); e.camDistance = 0; }
-        else if (e.camDistance >= 2) { e.setView(CAM_VIEW.FIRST); }
-        else { e.camDistance += 1; }
-        game.hud.toast(e.camView === CAM_VIEW.FIRST ? 'HELM VIEW' : 'CHASE VIEW');
+        // The mobile 🎥 button walks the chase distances only — the view pill
+        // beside SOUND owns chase⇄helm now, so this no longer has to carry
+        // both jobs on one control.
+        game.engine.camDistance = (game.engine.camDistance + 1) % 3;
+        game.hud.toast(['CLOSE', 'DEFAULT', 'WIDE'][game.engine.camDistance]);
       }
       else if (act === 'weather') { cycleWeather(); }
       game.audio?.whoosh();
@@ -246,6 +244,14 @@ function buildMobileHud() {
     const muted = game.audio.toggleMute();
     syncSound();
     game.hud.toast(muted ? 'SOUND OFF' : 'SOUND ON');
+  });
+
+  // Chase ⇄ helm — always visible. Shares one code path with the V key so the
+  // button label, the toast and the camera can never disagree.
+  const viewBtn = document.getElementById('view-toggle');
+  viewBtn?.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    toggleView();
   });
 
   // Tapping a vessel pill swaps to it (mobile equivalent of keys 1–4).
@@ -472,6 +478,24 @@ const IDLE_INPUT = {
   ndc: { x: 0, y: 0 },
 };
 
+/**
+ * The single entry point for changing view — the V key, the always-visible
+ * pill and the mobile 🎥 button all come through here, so the button label and
+ * the camera state cannot drift apart.
+ */
+function toggleView() {
+  const view = game.engine.toggleFirstPerson();
+  const first = view === CAM_VIEW.FIRST;
+  const btn = document.getElementById('view-toggle');
+  if (btn) {
+    btn.classList.toggle('first', first);
+    btn.firstChild.textContent = first ? '👁' : '🎥';
+    btn.querySelector('span').textContent = first ? 'HELM' : 'CHASE';
+  }
+  game.hud.toast(first ? 'HELM VIEW' : 'CHASE VIEW');
+  return view;
+}
+
 // ──────────────────────────────────────────────────────────────
 function handleHotkeys(input) {
   for (let i = 0; i < Math.min(VESSELS.length, 9); i++) {
@@ -500,10 +524,7 @@ function handleHotkeys(input) {
     game.engine.camDistance = (game.engine.camDistance + 1) % 3;
   }
 
-  if (input.consume('KeyV')) {
-    const view = game.engine.toggleFirstPerson();
-    game.hud.toast(view === CAM_VIEW.FIRST ? 'HELM VIEW' : 'CHASE VIEW');
-  }
+  if (input.consume('KeyV')) toggleView();
 
   if (input.consume('KeyG')) cycleWeather();
 

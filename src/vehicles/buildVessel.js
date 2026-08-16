@@ -220,14 +220,6 @@ export function updateVessel(rig, dt, { throttle = 0, onLand = false } = {}) {
       g.rotation.x = -0.14 * t;
       break;
     }
-    case 'wheel_deploy': {
-      // The wheels themselves need nothing here — Vessel.updateVisual already
-      // drives their unfold (pivot scale from `deploy`), suspension travel,
-      // steering and spin. This is only the hull settling onto them.
-      g.position.y = -0.07 * t;
-      g.rotation.x = -0.045 * t;
-      break;
-    }
     case 'just_keep_going': {
       g.position.y = s.onLand ? Math.sin(s.spinPhase * lm.motion.bounceHz * 6.28) * lm.motion.bounceAmpl : 0;
       break;
