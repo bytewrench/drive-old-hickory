@@ -46,7 +46,12 @@ function makeGeometry(THREE, part) {
     case 'hull':   return makeHull(THREE, part.shape || {});
     case 'foil':   return makeFoil(THREE, part.shape || {});
     case 'prop':   return makeProp(THREE, part.shape || {});
-    case 'tube':   return new THREE.CylinderGeometry(a[0], a[1] ?? a[0], a[2], a[3] ?? 16, 1, true);
+    // Open-ended cylinder, optionally only a partial arc — args [rTop, rBottom,
+    // h, seg, thetaStart, thetaLength]. Theta 0 faces +Z (the bow), so a
+    // wrap-around windscreen is an arc centred on zero. Without the arc
+    // parameters a windscreen comes out as a full ring hooping the whole boat.
+    case 'tube':   return new THREE.CylinderGeometry(
+      a[0], a[1] ?? a[0], a[2], a[3] ?? 16, 1, true, a[4] ?? 0, a[5] ?? Math.PI * 2);
     case 'torus':  return new THREE.TorusGeometry(a[0], a[1], a[2] ?? 8, a[3] ?? 16);
     default: throw new Error(`Unknown geom "${part.geom}" on part "${part.name}"`);
   }

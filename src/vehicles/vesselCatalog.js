@@ -80,7 +80,9 @@ export const VESSELS = [
     },
 
     palette: {
-      hull:  '#1d2836',
+      // Lifted from #1d2836. At near-black the new lofted sheer, flare and
+      // chine were invisible — the hull read as a silhouette with no form.
+      hull:  '#39536f',
       deck:  '#b48ee8',
       accent:'#ff5f6d',
       trim:  '#f2c94c',
@@ -118,11 +120,15 @@ export const VESSELS = [
         },
         opts: { finish: 'satin', doubleSided: true },
       },
-      { name: 'cockpitSole', geom: 'box',   args: [1.72, 0.10, 2.30], pos: [0, 0.42, 0.50],  color: 'deck', opts: { finish: 'matte' } },
-      { name: 'foredeck',    geom: 'box',   args: [1.80, 0.12, 1.70], pos: [0, 0.70, 2.05],  color: 'trim', opts: { finish: 'gloss' } },
-      // Curved wrap-around screen, not a flat pane on its edge.
-      { name: 'windshield',  geom: 'cyl',   args: [0.92, 0.92, 0.42, 14], pos: [0, 0.92, 1.30], rot: [-0.20, 0, 0], color: 'glass', opts: { opacity: 0.55, finish: 'glass', doubleSided: true } },
-      { name: 'screenFrame', geom: 'torus', args: [0.92, 0.032, 6, 14],   pos: [0, 1.13, 1.26], rot: [P / 2 - 0.20, 0, 0], color: 'trim', opts: { finish: 'metal' } },
+      // Shortened and pulled aft — the forward end used to run out past the
+      // point where the hull starts narrowing into the bow.
+      { name: 'cockpitSole', geom: 'box',   args: [1.66, 0.10, 1.95], pos: [0, 0.42, 0.28],  color: 'deck', opts: { finish: 'matte' } },
+      // Narrowed and pulled aft: at z = 2.05 the hull is already tapering into
+      // the bow, so a 1.80 m slab hung out over open water on both sides.
+      { name: 'foredeck',    geom: 'box',   args: [1.02, 0.11, 1.25], pos: [0, 0.74, 1.72],  color: 'trim', opts: { finish: 'gloss' } },
+      // A 130° arc of an open cylinder — a wrap-around screen. As a full
+      // cylinder this was a 1.84 m ring hooping a 2 m boat.
+      { name: 'windshield',  geom: 'tube',  args: [0.62, 0.62, 0.40, 18, -1.15, 2.30], pos: [0, 0.86, 0.98], rot: [-0.22, 0, 0], color: 'glass', opts: { opacity: 0.45, finish: 'glass', doubleSided: true } },
       { name: 'console',     geom: 'box',   args: [0.74, 0.34, 0.44], pos: [-0.45, 0.62, 1.02], color: 'deck', opts: { finish: 'satin' } },
       { name: 'wheelRim',    geom: 'torus', args: [0.15, 0.026, 6, 14], pos: [-0.45, 0.86, 0.86], rot: [1.15, 0, 0], color: 'dark', opts: { finish: 'metal' } },
       { name: 'seatPort',    geom: 'box',   args: [0.52, 0.16, 0.54], pos: [-0.45, 0.56, 0.30], color: 'accent', opts: { finish: 'matte' } },
@@ -134,8 +140,8 @@ export const VESSELS = [
       // running dead straight past a hull that isn't.
       { name: 'rubRailPort', geom: 'box',   args: [0.09, 0.13, 2.60], pos: [-1.02, 0.60, -0.75], rot: [0.05, 0.03, 0], color: 'dark', opts: { finish: 'rubber' } },
       { name: 'rubRailStbd', geom: 'box',   args: [0.09, 0.13, 2.60], pos: [1.02, 0.60, -0.75], rot: [0.05, -0.03, 0], color: 'dark', opts: { finish: 'rubber' } },
-      { name: 'railFwdPort', geom: 'box',   args: [0.09, 0.13, 2.30], pos: [-0.82, 0.80, 1.35], rot: [-0.16, 0.20, 0], color: 'dark', opts: { finish: 'rubber' } },
-      { name: 'railFwdStbd', geom: 'box',   args: [0.09, 0.13, 2.30], pos: [0.82, 0.80, 1.35], rot: [-0.16, -0.20, 0], color: 'dark', opts: { finish: 'rubber' } },
+      { name: 'railFwdPort', geom: 'box',   args: [0.09, 0.12, 1.90], pos: [-0.74, 0.80, 1.30], rot: [-0.13, 0.26, 0], color: 'dark', opts: { finish: 'rubber' } },
+      { name: 'railFwdStbd', geom: 'box',   args: [0.09, 0.12, 1.90], pos: [0.74, 0.80, 1.30], rot: [-0.13, -0.26, 0], color: 'dark', opts: { finish: 'rubber' } },
       { name: 'cleatBow',    geom: 'box',   args: [0.30, 0.07, 0.09], pos: [0, 0.86, 2.55], color: 'trim', opts: { finish: 'metal' } },
       { name: 'outdrive',    geom: 'box',   args: [0.30, 0.70, 0.46], pos: [0, -0.28, -2.32],  color: 'dark', opts: { finish: 'metal' } },
       { name: 'skeg',        geom: 'wedge', args: [0.10, 0.34, 0.55], pos: [0, -0.62, -2.28],  color: 'dark', opts: { finish: 'metal' } },
@@ -225,8 +231,8 @@ export const VESSELS = [
       { name: 'fanHub',     geom: 'cyl',   args: [0.16, 0.20, 0.30, 12], pos: [0, 1.35, -1.90], rot: [P / 2, 0, 0], color: 'trim', opts: { finish: 'metal' } },
       // A real 6-blade fan with twist, instead of two crossed boxes.
       { name: 'fanBlades',  geom: 'prop',  shape: { radius: 0.92, blades: 6, hub: 0.16, pitch: 0.42 }, pos: [0, 1.35, -1.90], color: 'trim', opts: { spin: 'fan', group: 'fan', finish: 'satin' } },
-      { name: 'rudderPort', geom: 'foil',  shape: { span: 0.06, chord: 0.68, thickness: 0.14, taper: 0.95, sections: 8, segments: 4 }, pos: [-0.40, 1.30, -2.45], rot: [0, 0, P / 2], color: 'accent', opts: { group: 'weapon', finish: 'satin' } },
-      { name: 'rudderStbd', geom: 'foil',  shape: { span: 0.06, chord: 0.68, thickness: 0.14, taper: 0.95, sections: 8, segments: 4 }, pos: [0.40, 1.30, -2.45], rot: [0, 0, P / 2], color: 'accent', opts: { group: 'weapon', finish: 'satin' } },
+      { name: 'rudderPort', geom: 'foil',  shape: { span: 0.92, chord: 0.62, thickness: 0.12, taper: 0.95, segments: 5 }, pos: [-0.40, 1.30, -2.45], rot: [0, 0, P / 2], color: 'accent', opts: { group: 'weapon', finish: 'satin' } },
+      { name: 'rudderStbd', geom: 'foil',  shape: { span: 0.92, chord: 0.62, thickness: 0.12, taper: 0.95, segments: 5 }, pos: [0.40, 1.30, -2.45], rot: [0, 0, P / 2], color: 'accent', opts: { group: 'weapon', finish: 'satin' } },
       { name: 'skidPort',   geom: 'box',   args: [0.16, 0.10, 3.60], pos: [-0.92, -0.16, 0], color: 'dark', opts: { group: 'skid', finish: 'rubber' } },
       { name: 'skidStbd',   geom: 'box',   args: [0.16, 0.10, 3.60], pos: [0.92, -0.16, 0],  color: 'dark', opts: { group: 'skid', finish: 'rubber' } },
     ],
@@ -270,7 +276,9 @@ export const VESSELS = [
     },
 
     palette: {
-      hull:  '#1a2430',
+      // Lifted from #1a2430 for the same reason as the runabout — a working
+      // tug's round bilge is the whole point of its hull and black hid it.
+      hull:  '#2e4257',
       deck:  '#ff5f6d',
       accent:'#f2c94c',
       trim:  '#b48ee8',
@@ -329,7 +337,7 @@ export const VESSELS = [
       { name: 'fenderPort',  geom: 'cyl',   args: [0.26, 0.26, 3.20, 12], pos: [-1.24, 0.60, -0.30], rot: [P / 2, 0, 0], color: 'dark', opts: { finish: 'rubber' } },
       { name: 'fenderStbd',  geom: 'cyl',   args: [0.26, 0.26, 3.20, 12], pos: [1.24, 0.60, -0.30],  rot: [P / 2, 0, 0], color: 'dark', opts: { finish: 'rubber' } },
       { name: 'prop',        geom: 'prop',  shape: { radius: 0.44, blades: 4, hub: 0.10, pitch: 0.7 }, pos: [0, -0.62, -2.52], color: 'accent', opts: { spin: 'prop', finish: 'metal' } },
-      { name: 'rudder',      geom: 'foil',  shape: { span: 0.10, chord: 0.72, thickness: 0.18, taper: 0.9, sections: 8, segments: 4 }, pos: [0, -0.55, -2.80], rot: [0, 0, P / 2], color: 'dark', opts: { finish: 'metal' } },
+      { name: 'rudder',      geom: 'foil',  shape: { span: 0.78, chord: 0.58, thickness: 0.16, taper: 0.9, segments: 5 }, pos: [0, -0.48, -2.78], rot: [0, 0, P / 2], color: 'dark', opts: { finish: 'metal' } },
     ],
 
     landMode: {
@@ -419,14 +427,14 @@ export const VESSELS = [
       // Domed bubble canopy rather than a flat translucent slab.
       { name: 'canopy',      geom: 'sphere',args: [0.50, 16, 10], pos: [0, 1.02, 0.32], color: 'glass', opts: { opacity: 0.55, finish: 'glass', doubleSided: true } },
       { name: 'canopyRail',  geom: 'torus', args: [0.50, 0.028, 6, 18], pos: [0, 1.02, 0.32], rot: [P / 2, 0, 0], color: 'trim', opts: { finish: 'metal' } },
-      { name: 'fin',         geom: 'foil',  shape: { span: 0.11, chord: 0.90, thickness: 0.20, taper: 0.55, sweep: 0.5, sections: 8, segments: 6 }, pos: [0, 1.30, -1.05], rot: [0, 0, P / 2], color: 'trim', opts: { finish: 'satin' } },
+      { name: 'fin',         geom: 'foil',  shape: { span: 0.86, chord: 0.82, thickness: 0.16, taper: 0.55, sweep: 0.5, segments: 6 }, pos: [0, 1.52, -1.05], rot: [0, 0, P / 2], color: 'trim', opts: { finish: 'satin' } },
       // Struts and foils are aerofoil sections now. A hydrofoil rendered as a
       // 0.10 m rectangular slab was the single most obviously-wrong part in
       // the whole catalog.
-      { name: 'strutFwdPort',geom: 'foil',  shape: { span: 0.13, chord: 0.30, thickness: 0.13, taper: 1, sections: 8, segments: 4 }, pos: [-0.85, -0.48, 1.60], rot: [0, 0, P / 2], color: 'dark', opts: { group: 'foil', finish: 'metal' } },
-      { name: 'strutFwdStbd',geom: 'foil',  shape: { span: 0.13, chord: 0.30, thickness: 0.13, taper: 1, sections: 8, segments: 4 }, pos: [0.85, -0.48, 1.60], rot: [0, 0, P / 2], color: 'dark', opts: { group: 'foil', finish: 'metal' } },
+      { name: 'strutFwdPort',geom: 'foil',  shape: { span: 0.95, chord: 0.30, thickness: 0.11, taper: 1, segments: 4 }, pos: [-0.85, -0.50, 1.60], rot: [0, 0, P / 2], color: 'dark', opts: { group: 'foil', finish: 'metal' } },
+      { name: 'strutFwdStbd',geom: 'foil',  shape: { span: 0.95, chord: 0.30, thickness: 0.11, taper: 1, segments: 4 }, pos: [0.85, -0.50, 1.60], rot: [0, 0, P / 2], color: 'dark', opts: { group: 'foil', finish: 'metal' } },
       { name: 'foilFwd',     geom: 'foil',  shape: { span: 2.40, chord: 0.46, thickness: 0.11, taper: 0.6, sweep: 0.2 }, pos: [0, -0.95, 1.60], color: 'trim', opts: { group: 'foil', finish: 'metal' } },
-      { name: 'strutAft',    geom: 'foil',  shape: { span: 0.17, chord: 0.34, thickness: 0.15, taper: 1, sections: 8, segments: 4 }, pos: [0, -0.53, -1.75], rot: [0, 0, P / 2], color: 'dark', opts: { group: 'foil', finish: 'metal' } },
+      { name: 'strutAft',    geom: 'foil',  shape: { span: 1.05, chord: 0.34, thickness: 0.13, taper: 1, segments: 4 }, pos: [0, -0.55, -1.75], rot: [0, 0, P / 2], color: 'dark', opts: { group: 'foil', finish: 'metal' } },
       { name: 'foilAft',     geom: 'foil',  shape: { span: 1.60, chord: 0.42, thickness: 0.11, taper: 0.6, sweep: 0.2 }, pos: [0, -1.05, -1.75], color: 'trim', opts: { group: 'foil', finish: 'metal' } },
       { name: 'jetPort',     geom: 'tube',  args: [0.18, 0.18, 0.44, 14], pos: [-0.85, 0.05, -2.62], rot: [P / 2, 0, 0], color: 'accent', opts: { finish: 'metal', doubleSided: true } },
       { name: 'jetStbd',     geom: 'tube',  args: [0.18, 0.18, 0.44, 14], pos: [0.85, 0.05, -2.62],  rot: [P / 2, 0, 0], color: 'accent', opts: { finish: 'metal', doubleSided: true } },
@@ -558,7 +566,7 @@ export const VESSELS = [
     buoyancy: { draft: 0.26, planeAtSpeed: 0.35, bowRiseDeg: 5 },
 
     // Cockpit, just behind the windscreen and under the wing.
-    helm: [0, 1.06, 1.15],
+    helm: [0, 1.06, 0.98],
 
     parts: [
       // Flying-boat hull: a planing step aft, fine entry forward, high sheer.
@@ -572,35 +580,58 @@ export const VESSELS = [
         },
         opts: { finish: 'gloss' },
       },
-      { name: 'bootStripe',  geom: 'box',   args: [1.34, 0.10, 4.20], pos: [0, 0.26, 0.10], color: 'accent', opts: { finish: 'gloss' } },
-      { name: 'cabin',       geom: 'box',   args: [1.12, 0.60, 1.90], pos: [0, 0.92, 0.95], color: 'hull', opts: { finish: 'gloss' } },
-      { name: 'windscreen',  geom: 'box',   args: [1.02, 0.46, 0.10], pos: [0, 1.14, 1.86], rot: [-0.42, 0, 0], color: 'glass', opts: { opacity: 0.5, finish: 'glass' } },
-      { name: 'sideGlassP',  geom: 'box',   args: [0.06, 0.36, 1.30], pos: [-0.57, 1.06, 0.95], color: 'glass', opts: { opacity: 0.5, finish: 'glass' } },
-      { name: 'sideGlassS',  geom: 'box',   args: [0.06, 0.36, 1.30], pos: [0.57, 1.06, 0.95],  color: 'glass', opts: { opacity: 0.5, finish: 'glass' } },
+      { name: 'bootStripe',  geom: 'box',   args: [1.32, 0.09, 3.80], pos: [0, 0.30, 0.30], color: 'accent', opts: { finish: 'gloss' } },
 
-      // High wing on a cabane, with dihedral struts down to the hull.
-      { name: 'wing',        geom: 'foil',  shape: { span: 8.40, chord: 1.15, thickness: 0.17, taper: 0.72, sweep: 0.12, segments: 18 }, pos: [0, 1.42, 0.55], color: 'deck', opts: { finish: 'satin' } },
-      { name: 'wingTipP',    geom: 'sphere',args: [0.10, 10, 6], pos: [-4.18, 1.42, 0.60], color: 'accent', opts: { finish: 'gloss' } },
-      { name: 'wingTipS',    geom: 'sphere',args: [0.10, 10, 6], pos: [4.18, 1.42, 0.60],  color: 'accent', opts: { finish: 'gloss' } },
-      { name: 'strutWingP',  geom: 'foil',  shape: { span: 0.07, chord: 0.20, thickness: 0.10, taper: 1, sections: 6, segments: 3 }, pos: [-1.55, 0.92, 0.55], rot: [0, 0, 0.42], color: 'dark', opts: { finish: 'metal' } },
-      { name: 'strutWingS',  geom: 'foil',  shape: { span: 0.07, chord: 0.20, thickness: 0.10, taper: 1, sections: 6, segments: 3 }, pos: [1.55, 0.92, 0.55], rot: [0, 0, -0.42], color: 'dark', opts: { finish: 'metal' } },
+      // ── fuselage ────────────────────────────────────────────
+      // The hull loft alone stops at deck level, so nose, cabin and tail were
+      // three islands floating in mid-air with nothing joining them. These
+      // three parts are the actual body of the aeroplane.
+      { name: 'fusFwd',      geom: 'cyl',   args: [0.46, 0.52, 1.70, 14], pos: [0, 0.86, 1.82], rot: [P / 2, 0, 0], color: 'hull', opts: { finish: 'gloss' } },
+      { name: 'cabin',       geom: 'box',   args: [1.06, 0.76, 1.80], pos: [0, 0.92, 0.72], color: 'hull', opts: { finish: 'gloss' } },
+      // Tapering tail boom carrying the empennage back to the fin. NOTE the
+      // radius order: rotX(+90°) maps the cylinder's +Y (radiusTop) end onto
+      // +Z, so radiusTop is the FORWARD end. Written the other way round the
+      // boom flares out toward the tail and swamps the whole aeroplane.
+      { name: 'tailBoom',    geom: 'cyl',   args: [0.42, 0.13, 3.00, 14], pos: [0, 0.86, -1.70], rot: [P / 2, 0, 0], color: 'hull', opts: { finish: 'gloss' } },
 
-      // Engine and a real four-blade propeller.
-      { name: 'cowl',        geom: 'cyl',   args: [0.34, 0.40, 0.70, 16], pos: [0, 1.04, 2.62], rot: [P / 2, 0, 0], color: 'accent', opts: { finish: 'gloss' } },
-      { name: 'spinner',     geom: 'cone',  args: [0.16, 0.36, 14], pos: [0, 1.04, 3.06], rot: [P / 2, 0, 0], color: 'trim', opts: { finish: 'gloss' } },
-      { name: 'propeller',   geom: 'prop',  shape: { radius: 1.05, blades: 4, hub: 0.10, pitch: 0.5 }, pos: [0, 1.04, 3.02], color: 'dark', opts: { spin: 'fan', finish: 'satin' } },
+      { name: 'windscreen',  geom: 'tube',  args: [0.50, 0.50, 0.52, 18, -1.10, 2.20], pos: [0, 1.12, 1.52], rot: [-0.30, 0, 0], color: 'glass', opts: { opacity: 0.42, finish: 'glass', doubleSided: true } },
+      { name: 'sideGlassP',  geom: 'box',   args: [0.06, 0.38, 1.20], pos: [-0.54, 1.06, 0.72], color: 'glass', opts: { opacity: 0.45, finish: 'glass' } },
+      { name: 'sideGlassS',  geom: 'box',   args: [0.06, 0.38, 1.20], pos: [0.54, 1.06, 0.72],  color: 'glass', opts: { opacity: 0.45, finish: 'glass' } },
 
-      // Empennage.
-      { name: 'tailplane',   geom: 'foil',  shape: { span: 2.90, chord: 0.62, thickness: 0.12, taper: 0.66, sweep: 0.15, segments: 10 }, pos: [0, 0.86, -2.72], color: 'deck', opts: { finish: 'satin' } },
-      { name: 'fin',         geom: 'foil',  shape: { span: 0.10, chord: 1.05, thickness: 0.14, taper: 0.50, sweep: 0.62, sections: 8, segments: 8 }, pos: [0, 1.30, -2.70], rot: [0, 0, P / 2], color: 'accent', opts: { finish: 'satin' } },
-      { name: 'rudderTail',  geom: 'foil',  shape: { span: 0.08, chord: 0.42, thickness: 0.11, taper: 0.7, sections: 8, segments: 5 }, pos: [0, 1.34, -3.16], rot: [0, 0, P / 2], color: 'trim', opts: { finish: 'satin' } },
+      // ── high wing on a cabane ───────────────────────────────
+      { name: 'wing',        geom: 'foil',  shape: { span: 8.40, chord: 1.25, thickness: 0.24, taper: 0.74, sweep: 0.10, segments: 18 }, pos: [0, 1.56, 0.62], color: 'deck', opts: { finish: 'satin' } },
+      { name: 'wingRoot',    geom: 'box',   args: [1.10, 0.30, 1.20], pos: [0, 1.42, 0.62], color: 'hull', opts: { finish: 'gloss' } },
+      { name: 'wingTipP',    geom: 'sphere',args: [0.13, 10, 6], pos: [-4.16, 1.56, 0.66], color: 'accent', opts: { finish: 'gloss' } },
+      { name: 'wingTipS',    geom: 'sphere',args: [0.13, 10, 6], pos: [4.16, 1.56, 0.66],  color: 'accent', opts: { finish: 'gloss' } },
+      // Lift struts running from the lower fuselage out to mid-span — the
+      // detail that makes a high wing read as attached rather than hovering.
+      { name: 'liftStrutP',  geom: 'box',   args: [0.07, 1.35, 0.22], pos: [-1.12, 1.02, 0.62], rot: [0, 0, 0.62], color: 'dark', opts: { finish: 'metal' } },
+      { name: 'liftStrutS',  geom: 'box',   args: [0.07, 1.35, 0.22], pos: [1.12, 1.02, 0.62], rot: [0, 0, -0.62], color: 'dark', opts: { finish: 'metal' } },
 
-      // Wingtip floats on struts — what makes it a floatplane rather than a
-      // land aeroplane that happens to be over water.
-      { name: 'floatPort',   geom: 'hull',  shape: { len: 1.50, beam: 0.40, draft: 0.20, freeboard: 0.16, sectionAft: 3.4, sectionFwd: 1.3, sheer: 0.5, rocker: 0.9, transom: 0.6, entry: 2.0, ribs: 6, stations: 12 }, pos: [-3.15, -0.16, 0.35], color: 'trim', opts: { finish: 'gloss' } },
-      { name: 'floatStbd',   geom: 'hull',  shape: { len: 1.50, beam: 0.40, draft: 0.20, freeboard: 0.16, sectionAft: 3.4, sectionFwd: 1.3, sheer: 0.5, rocker: 0.9, transom: 0.6, entry: 2.0, ribs: 6, stations: 12 }, pos: [3.15, -0.16, 0.35], color: 'trim', opts: { finish: 'gloss' } },
-      { name: 'floatStrutP', geom: 'foil',  shape: { span: 0.06, chord: 0.18, thickness: 0.09, taper: 1, sections: 6, segments: 3 }, pos: [-3.15, 0.62, 0.42], rot: [0, 0, P / 2], color: 'dark', opts: { finish: 'metal' } },
-      { name: 'floatStrutS', geom: 'foil',  shape: { span: 0.06, chord: 0.18, thickness: 0.09, taper: 1, sections: 6, segments: 3 }, pos: [3.15, 0.62, 0.42], rot: [0, 0, P / 2], color: 'dark', opts: { finish: 'metal' } },
+      // ── engine + four-blade propeller ───────────────────────
+      { name: 'cowl',        geom: 'cyl',   args: [0.40, 0.46, 0.62, 16], pos: [0, 0.86, 2.86], rot: [P / 2, 0, 0], color: 'accent', opts: { finish: 'gloss' } },
+      { name: 'spinner',     geom: 'cone',  args: [0.17, 0.40, 14], pos: [0, 0.86, 3.30], rot: [P / 2, 0, 0], color: 'trim', opts: { finish: 'gloss' } },
+      { name: 'propeller',   geom: 'prop',  shape: { radius: 1.05, blades: 4, hub: 0.11, pitch: 0.5 }, pos: [0, 0.86, 3.24], color: 'dark', opts: { spin: 'fan', finish: 'satin' } },
+
+      // ── empennage, seated on the tail boom ──────────────────
+      { name: 'tailplane',   geom: 'foil',  shape: { span: 2.90, chord: 0.66, thickness: 0.16, taper: 0.66, sweep: 0.15, segments: 10 }, pos: [0, 0.98, -2.88], color: 'deck', opts: { finish: 'satin' } },
+      // `span` is the foil's long axis. Rotating by 90° about Z stands it up,
+      // so span becomes the fin HEIGHT — not its thickness. Set to 0.14 the
+      // whole tail fin was a 14 cm sliver.
+      { name: 'fin',         geom: 'foil',  shape: { span: 1.10, chord: 0.92, thickness: 0.15, taper: 0.58, sweep: 0.26, segments: 8 }, pos: [0, 1.44, -2.82], rot: [0, 0, P / 2], color: 'accent', opts: { finish: 'satin' } },
+
+      // ── floats ──────────────────────────────────────────────
+      // Raised to straddle the waterline and moved inboard. They were at
+      // y = -0.16, i.e. entirely submerged and invisible, on struts too short
+      // to see.
+      { name: 'floatPort',   geom: 'hull',  shape: { len: 3.20, beam: 0.52, draft: 0.26, freeboard: 0.22, sectionAft: 3.4, sectionFwd: 1.3, sheer: 0.5, rocker: 0.9, transom: 0.6, entry: 2.0, ribs: 6, stations: 14 }, pos: [-2.30, 0.14, 0.55], color: 'trim', opts: { finish: 'gloss' } },
+      { name: 'floatStbd',   geom: 'hull',  shape: { len: 3.20, beam: 0.52, draft: 0.26, freeboard: 0.22, sectionAft: 3.4, sectionFwd: 1.3, sheer: 0.5, rocker: 0.9, transom: 0.6, entry: 2.0, ribs: 6, stations: 14 }, pos: [2.30, 0.14, 0.55], color: 'trim', opts: { finish: 'gloss' } },
+      { name: 'floatStrutP', geom: 'box',   args: [0.09, 1.15, 0.20], pos: [-2.30, 0.62, 1.25], rot: [0, 0, 0.16], color: 'dark', opts: { finish: 'metal' } },
+      { name: 'floatStrutS', geom: 'box',   args: [0.09, 1.15, 0.20], pos: [2.30, 0.62, 1.25], rot: [0, 0, -0.16], color: 'dark', opts: { finish: 'metal' } },
+      { name: 'floatBraceP', geom: 'box',   args: [0.08, 1.05, 0.18], pos: [-2.30, 0.58, -0.35], rot: [0, 0, 0.16], color: 'dark', opts: { finish: 'metal' } },
+      { name: 'floatBraceS', geom: 'box',   args: [0.08, 1.05, 0.18], pos: [2.30, 0.58, -0.35], rot: [0, 0, -0.16], color: 'dark', opts: { finish: 'metal' } },
+      { name: 'floatCrossP', geom: 'box',   args: [1.90, 0.07, 0.16], pos: [-1.20, 0.28, 0.55], color: 'dark', opts: { finish: 'metal' } },
+      { name: 'floatCrossS', geom: 'box',   args: [1.90, 0.07, 0.16], pos: [1.20, 0.28, 0.55], color: 'dark', opts: { finish: 'metal' } },
     ],
 
     landMode: {
