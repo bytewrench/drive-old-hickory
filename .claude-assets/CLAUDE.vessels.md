@@ -11,13 +11,25 @@ animation). Full design rationale is in `docs/VESSELS.md`.
 
 ### Hard rules — do not violate without asking
 
-1. **No wheels, ever.** Vessels are water craft. Land traversal is handled per
-   hull by `landMode`, and each mode must read as a boat coping with land, not
-   as a boat becoming a car. If a task seems to want wheels, it wants a new
-   `landMode` instead.
-2. **Primitives only.** Boxes, cylinders, cones, spheres, and the `wedge`
-   triangular prism from `buildVessel.js`. No imported models, no textures, no
-   bevels. `flatShading: true` on every material.
+> **Rules 1 and 2 were relaxed by the project owner.** The original text is kept
+> below each entry so the reasoning stays visible. Everything else stands.
+
+1. **Wheels are per-vessel, not banned.** The owner chose a deliberate mix:
+   `runabout` and `tug` deploy real visible running gear on land; `airboat`,
+   `hydrofoil` and `pwc` keep a boat-idiom gimmick. A hull opts in with
+   `landWheels` in `vesselConfigs.js` — `VesselMesh` then builds tyre, rim,
+   spokes and trailing arm into the wheel pivots that `Vessel.updateVisual`
+   already drives. Do not give a hull wheels that has not opted in.
+   *(Was: "No wheels, ever… each mode must read as a boat coping with land.")*
+2. **Primitives, plus the lofted forms in `hullGeometry.js`.** `hull`, `foil`
+   and `prop` build real curved surfaces — sheer, flare, deadrise, rocker,
+   aerofoil sections, twisted blades — because a box cannot express a hull's
+   silhouette. Lofted parts shade smoothly; chunky fittings stay
+   `flatShading: true`. Materials are PBR via the `finish` opt
+   (`gloss`/`satin`/`matte`/`metal`/`rubber`/`glass`), never raw Lambert.
+   Still no image textures. An author-supplied glTF may be attached with
+   `model: { url }` — see `modelLoader.js`.
+   *(Was: "Primitives only… No imported models, no textures, no bevels.")*
 3. **Parts reference palette keys, never hex.** `color: 'accent'`, not
    `color: '#ff5f6d'`. Palettes are per-vessel and swappable.
 4. **Never hardcode a stat in game logic.** Read from `vessel.stats`. Balance

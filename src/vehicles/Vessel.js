@@ -32,7 +32,7 @@ const ASSIST_WINDOW = 8;
 /** Seconds spent as a wreck before relaunching at the ramp. */
 const RESPAWN_DELAY = 3.5;
 
-export const MODE = { WATER: 'water', LAND: 'land', AIR: 'air' };
+export const MODE = { WATER: 'water', LAND: 'land', AIR: 'air', FLY: 'fly' };
 
 export class Vessel {
   constructor(physics, scene, cfg, spawn) {
@@ -372,18 +372,28 @@ export class Vessel {
     this.deploy += (wantWheels - this.deploy) * (1 - Math.exp(-4.5 * dt));
     this._updateWheels(dt, throttle, steer, boostMul, input.handbrake, time);
 
+    // ── flight ──
+    // Applied unconditionally for a fly-capable hull, not only once airborne.
+    // A seaplane has to be able to take off: it accelerates on the step under
+    // ordinary boat thrust while lift builds with airspeed, and leaves the
+    // water at the moment lift exceeds weight. Gating this on "already
+    // airborne" would mean it could never get there.
+    if (c.fly) this._updateFlight(dt, throttle, steer, boostMul, m);
+
     // ── airborne handling ──
     if (this.wheelContacts === 0 && this.submerged < 0.05) {
       this.airTime += dt;
 
-      // Bleed off yaw spin so a bad landing settles instead of pirouetting.
-      this.body.addTorque({ x: 0, y: -this.angVel.y * m * 0.5, z: 0 }, true);
-      // Light stunt control — enough to tweak a jump, never enough to loop.
-      this.body.addTorque({
-        x: this.right.x * throttle * m * 0.45 + this.fwd.x * steer * m * 0.3,
-        y: steer * m * 0.8,
-        z: this.right.z * throttle * m * 0.45 + this.fwd.z * steer * m * 0.3,
-      }, true);
+      if (!c.fly) {
+        // Bleed off yaw spin so a bad landing settles instead of pirouetting.
+        this.body.addTorque({ x: 0, y: -this.angVel.y * m * 0.5, z: 0 }, true);
+        // Light stunt control — enough to tweak a jump, never enough to loop.
+        this.body.addTorque({
+          x: this.right.x * throttle * m * 0.45 + this.fwd.x * steer * m * 0.3,
+          y: steer * m * 0.8,
+          z: this.right.z * throttle * m * 0.45 + this.fwd.z * steer * m * 0.3,
+        }, true);
+      }
     } else {
       if (this.airTime > 0.9) {
         this.bestAir = Math.max(this.bestAir, this.airTime);
@@ -394,9 +404,13 @@ export class Vessel {
     }
 
     // ── mode ──
+    // An aircraft off both surfaces is FLYING, not merely airborne. The two
+    // are genuinely different states: MODE.AIR is ballistic and gets
+    // self-righted, MODE.FLY is under aerodynamic control and must be allowed
+    // to bank and pitch freely.
     this.mode = this.submerged > 0.15 ? MODE.WATER
       : this.wheelContacts > 0 ? MODE.LAND
-        : MODE.AIR;
+        : (c.fly ? MODE.FLY : MODE.AIR);
 
     // ── attitude keeper (every mode, no gaps) ──
     // This used to live inside the water and airborne branches, which left a
@@ -411,13 +425,20 @@ export class Vessel {
       // (up.y < 0.7) so a near-capsize is caught and pushed back hard, while
       // gentle lean into a turn is left alone.
       const heeling = clamp((0.7 - this.up.y) / 0.7, 0, 1);
-      const upK = Math.max(wet * 6.5, grounded * (c.land.uprightK ?? 6.0),
+      const flying = this.mode === MODE.FLY;
+      // Self-righting is exactly wrong for an aircraft — it would fight every
+      // bank and make a turn impossible. In flight the aerodynamic model
+      // provides its own stability instead.
+      const upK = flying ? 0 : Math.max(wet * 6.5, grounded * (c.land.uprightK ?? 6.0),
         this.mode === MODE.AIR ? 4.5 : 0) * (1 + heeling * 2.2);
-      this._uprightTorque(m, upK);
+      if (upK > 0) this._uprightTorque(m, upK);
 
       // The floor matters: airborne is exactly when a tumble runs away, and a
       // craft that spends time off the surface needs roll bled off in the air.
-      const rollDamp = Math.max(wet * c.drag.roll * 1.4, grounded * (c.land.rollDamp ?? 9.0), 4.5);
+      // A flying craft still gets a little, or control inputs never settle.
+      const rollDamp = flying
+        ? (c.fly.rateDamp ?? 1.6)
+        : Math.max(wet * c.drag.roll * 1.4, grounded * (c.land.rollDamp ?? 9.0), 4.5);
       this.body.addTorque({
         x: -this.angVel.x * rollDamp * m,
         y: 0,
@@ -475,6 +496,117 @@ export class Vessel {
     }
 
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
+  }
+
+  /**
+   * Fixed-wing aerodynamics for hulls that carry a `fly` block.
+   *
+   * This is a real (if simplified) flight model rather than the ballistic
+   * torque MODE.AIR uses: lift from angle of attack with a stall break, induced
+   * plus parasitic drag, sideslip resistance, and control surfaces whose
+   * authority scales with dynamic pressure — so the controls go slack at low
+   * airspeed exactly as they should, and a stall drops the nose on its own.
+   *
+   * CONTROLS, once airborne:
+   *   W / S   elevator — nose up / nose down
+   *   A / D   ailerons — roll, with coordinated yaw so a bank turns the craft
+   *   Shift   throttle boost
+   * On the water it is an ordinary boat: W is thrust, and it takes off when
+   * lift finally exceeds weight.
+   */
+  _updateFlight(dt, throttle, steer, boostMul, m) {
+    const F = this.cfg.fly;
+    const v = this.vel;
+    const speed = this.speed;
+
+    const vf = v.dot(this.fwd);          // airspeed along the nose
+    const vu = v.dot(this.up);           // vertical, body axes
+    const vr = v.dot(this.right);        // sideslip
+
+    // Dynamic pressure. Air density and wing area are folded into one `rho`
+    // so there is a single knob for "how strongly the air acts on this craft".
+    const q = 0.5 * F.rho * speed * speed;
+    if (!(q > 0) || !Number.isFinite(q)) return;
+
+    // Angle of attack, positive nose-above-flightpath. The denominator floor
+    // keeps this finite at a standstill.
+    const alpha = Math.atan2(-vu, Math.max(vf, 0.5));
+
+    // Lift: linear in alpha, then washed out past the stall so pulling too
+    // hard actually costs you the wing instead of turning tighter forever.
+    const stall = F.stallAlpha ?? 0.32;
+    let cl = (F.cl0 ?? 0.10) + F.clAlpha * alpha;
+    const over = Math.abs(alpha) - stall;
+    if (over > 0) cl *= Math.max(0.22, 1 - over * 2.4);
+    cl = clamp(cl, -F.clMax, F.clMax);
+
+    const lift = q * cl * m;
+    this.body.addForce({
+      x: this.up.x * lift, y: this.up.y * lift, z: this.up.z * lift,
+    }, true);
+
+    // Drag: parasitic + induced (∝ cl²), opposing the flight path.
+    if (speed > 0.2) {
+      const cd = (F.cd0 ?? 0.020) + (F.k ?? 0.055) * cl * cl;
+      const s = -q * cd * m / speed;
+      this.body.addForce({ x: v.x * s, y: v.y * s, z: v.z * s }, true);
+    }
+
+    // Fuselage side area — stops it flying crabwise.
+    const side = -vr * Math.abs(vr) * (F.sideCd ?? 0.06) * m;
+    this.body.addForce({
+      x: this.right.x * side, y: this.right.y * side, z: this.right.z * side,
+    }, true);
+
+    // Thrust. Held back while the hull is still in the water so it doesn't
+    // fight the boat thrust already being applied there.
+    if (this.submerged < 0.15) {
+      const th = F.thrust * m * boostMul;
+      this.body.addForce({
+        x: this.fwd.x * th, y: this.fwd.y * th, z: this.fwd.z * th,
+      }, true);
+    }
+
+    // ── control surfaces + natural stability ──
+    // Authority is proportional to q, capped so a dive doesn't make the craft
+    // twitchy beyond control.
+    // The floor matters more than the cap. Authority proportional to q alone
+    // collapses toward zero exactly when the craft is slow and nose-high — the
+    // one moment it most needs to get its nose down — so recovery from a stall
+    // took many seconds of hanging on the propeller.
+    const auth = (Math.min(q, F.authCap ?? 260) + (F.authFloor ?? 10)) * m;
+
+    // Rotating positively about `right` pitches the NOSE DOWN, so climb is the
+    // negative direction. W is climb, which is the intuitive read on WASD.
+    const beta = Math.atan2(vr, Math.max(vf, 0.5));
+
+    // Alpha limiter. Without it, holding full elevator in a zoom climb drives
+    // the angle of attack past the stall — not because the pitch trim asks for
+    // it, but because the flight path falls away under gravity faster than the
+    // nose does — and the craft mushes down at 60°+ AoA. Fading the elevator
+    // out as alpha approaches the stall is what real fly-by-wire does, and it
+    // still permits a stall if you provoke one hard enough.
+    const limit = clamp(1 - (Math.abs(alpha) - stall * 0.7) / (stall * 0.6), 0, 1);
+    // Past the stall the centre of pressure moves aft on a real wing, which
+    // drops the nose on its own. Modelling that is what makes a stall recover
+    // rather than settle into a mush.
+    const stallBreak = Math.max(0, Math.abs(alpha) - stall)
+      * Math.sign(alpha) * (F.stallPitchDown ?? 1.4);
+    const pitch = -throttle * (F.pitchAuth ?? 0.9) * limit
+      + alpha * (F.pitchStab ?? 1.5) + stallBreak;
+    const roll = -steer * (F.rollAuth ?? 1.5);
+    // Sideslip pushes the nose back into the wind; bank angle (right.y < 0 is
+    // starboard-down) feeds the coordinated turn.
+    const yaw = beta * (F.yawStab ?? 0.9) - this.right.y * (F.turnCoord ?? 1.1);
+
+    this.body.addTorque({
+      x: (this.right.x * pitch + this.fwd.x * roll) * auth,
+      y: yaw * auth,
+      z: (this.right.z * pitch + this.fwd.z * roll) * auth,
+    }, true);
+
+    // Yaw rate damping — the attitude keeper only damps x/z for a flyer.
+    this.body.addTorque({ x: 0, y: -this.angVel.y * (F.yawDamp ?? 2.2) * m, z: 0 }, true);
   }
 
   _updateWheels(dt, throttle, steer, boostMul, handbrake, time) {

@@ -9,7 +9,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { FIXED_DT, MAX_SUBSTEPS, HEIGHT_TEX_RES, WATER_LEVEL, WATER_BASE, WEATHER, setWaterLevel } from './config.js';
 import { game, addScore } from './game.js';
 
-import { Engine } from './core/Engine.js';
+import { Engine, CAM_VIEW } from './core/Engine.js';
 import { PostFX } from './core/PostFX.js';
 import { Physics } from './core/Physics.js';
 import { Input } from './core/Input.js';
@@ -182,6 +182,9 @@ function spawnVessel(index, keepTransform = true) {
   const v = new Vessel(game.physics, game.engine.scene, VESSELS[index], spawn);
   v.health = Math.max(1, Math.round(v.maxHealth * carried));
   v.setNight(game.night);
+  // Move this hull onto the first-person cull layer. Must happen on every
+  // spawn, since swapping vessels builds a brand-new model.
+  v.model?.setLocal?.(true);
   game.vessel = v;
   game.hud.setVessel(index);
   game.engine.camYaw = v.heading;
@@ -216,7 +219,15 @@ function buildMobileHud() {
       const act = btn.dataset.act;
       if (act === 'reset') { game.vessel?.reset(); game.hud.toast('BACK AT HUNTERS POINT'); }
       else if (act === 'night') { setNight(game.nightTarget <= 0.5); }
-      else if (act === 'cam') { game.engine.camDistance = (game.engine.camDistance + 1) % 3; }
+      else if (act === 'cam') {
+        // Mobile has no keyboard, so the one camera button walks the whole set:
+        // three chase distances, then the helm view, then back.
+        const e = game.engine;
+        if (e.camView === CAM_VIEW.FIRST) { e.setView(CAM_VIEW.CHASE); e.camDistance = 0; }
+        else if (e.camDistance >= 2) { e.setView(CAM_VIEW.FIRST); }
+        else { e.camDistance += 1; }
+        game.hud.toast(e.camView === CAM_VIEW.FIRST ? 'HELM VIEW' : 'CHASE VIEW');
+      }
       else if (act === 'weather') { cycleWeather(); }
       game.audio?.whoosh();
     });
@@ -424,7 +435,7 @@ function frame() {
     v.readTransform();
     v.updateVisual(dt, input, game.engine.camera, game.time);
     if (game.running) game.weapons.tryFire(v, input.consumeFire());
-    game.engine.updateCamera(dt, v.position, v.heading, v.speed, v.boosting);
+    game.engine.updateCamera(dt, v);
     game.audio.updateEngine(
       Math.min(v.speed / 45, 1.4),
       Math.abs(input.throttle),
@@ -463,7 +474,7 @@ const IDLE_INPUT = {
 
 // ──────────────────────────────────────────────────────────────
 function handleHotkeys(input) {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < Math.min(VESSELS.length, 9); i++) {
     if (input.consume(`Digit${i + 1}`) || input.consume(`Numpad${i + 1}`)) {
       if (i !== currentIndex) {
         const v = spawnVessel(i, true);
@@ -487,6 +498,11 @@ function handleHotkeys(input) {
 
   if (input.consume('KeyC')) {
     game.engine.camDistance = (game.engine.camDistance + 1) % 3;
+  }
+
+  if (input.consume('KeyV')) {
+    const view = game.engine.toggleFirstPerson();
+    game.hud.toast(view === CAM_VIEW.FIRST ? 'HELM VIEW' : 'CHASE VIEW');
   }
 
   if (input.consume('KeyG')) cycleWeather();

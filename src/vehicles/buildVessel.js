@@ -16,6 +16,8 @@
  *   updateVessel(rig, dt, { throttle, onLand });
  */
 
+import { makeHull, makeFoil, makeProp } from './hullGeometry.js';
+
 /** Triangular prism: wide at -Z, point at +Z. Centered on its own bbox. */
 function makeWedge(THREE, w, h, d) {
   const shape = new THREE.Shape();
@@ -38,9 +40,44 @@ function makeGeometry(THREE, part) {
     case 'cone':   return new THREE.ConeGeometry(a[0], a[1], a[2] ?? 8);
     case 'wedge':  return makeWedge(THREE, a[0], a[1], a[2]);
     case 'sphere': return new THREE.SphereGeometry(a[0], a[1] ?? 8, a[2] ?? 6);
+    // Lofted forms. These take an options object in `part.shape` rather than a
+    // positional args array — there are too many parameters for positions to
+    // stay readable.
+    case 'hull':   return makeHull(THREE, part.shape || {});
+    case 'foil':   return makeFoil(THREE, part.shape || {});
+    case 'prop':   return makeProp(THREE, part.shape || {});
+    case 'tube':   return new THREE.CylinderGeometry(a[0], a[1] ?? a[0], a[2], a[3] ?? 16, 1, true);
+    case 'torus':  return new THREE.TorusGeometry(a[0], a[1], a[2] ?? 8, a[3] ?? 16);
     default: throw new Error(`Unknown geom "${part.geom}" on part "${part.name}"`);
   }
 }
+
+/**
+ * Surface finishes. The catalog used to build everything from one flat-shaded
+ * MeshLambertMaterial, which has no roughness, no metalness and — crucially —
+ * no response to an environment map. That made the hero object of the game the
+ * least-shaded thing in the scene. These map a named finish onto real PBR.
+ */
+/**
+ * Clearcoat is a genuinely expensive shader on phone GPUs, and a vessel can
+ * carry a dozen of them. On mobile every 'physical' finish falls back to
+ * 'standard' with a compensating roughness drop — visually close, far cheaper,
+ * and it avoids a pile of shader compiles during the launch transition.
+ */
+const IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test(
+  typeof navigator === 'undefined' ? '' : navigator.userAgent,
+);
+
+const FINISH = {
+  // Gelcoat: a clearcoat over colour is exactly what a moulded GRP hull is.
+  gloss:  { cls: 'physical', roughness: 0.38, metalness: 0.02, clearcoat: 1.0, clearcoatRoughness: 0.10, smooth: true },
+  satin:  { cls: 'standard', roughness: 0.55, metalness: 0.05, smooth: true },
+  matte:  { cls: 'standard', roughness: 0.88, metalness: 0.00 },
+  metal:  { cls: 'standard', roughness: 0.34, metalness: 0.88, smooth: true },
+  rubber: { cls: 'standard', roughness: 0.95, metalness: 0.00 },
+  glass:  { cls: 'physical', roughness: 0.06, metalness: 0.00, clearcoat: 1.0, clearcoatRoughness: 0.04, smooth: true },
+  default:{ cls: 'standard', roughness: 0.62, metalness: 0.06 },
+};
 
 export function buildVessel(THREE, vessel, { castShadow = true } = {}) {
   const group = new THREE.Group();
@@ -48,15 +85,39 @@ export function buildVessel(THREE, vessel, { castShadow = true } = {}) {
 
   const materials = new Map();
   const getMaterial = (colorKey, opts = {}) => {
-    const key = `${colorKey}|${opts.wire ? 'w' : ''}|${opts.opacity ?? 1}`;
+    const finishName = opts.finish || (opts.opacity != null && opts.opacity < 1 ? 'glass' : 'default');
+    const f = FINISH[finishName] || FINISH.default;
+    const key = `${colorKey}|${finishName}|${opts.wire ? 'w' : ''}|${opts.opacity ?? 1}`;
+
     if (!materials.has(key)) {
-      materials.set(key, new THREE.MeshLambertMaterial({
+      const common = {
         color: vessel.palette[colorKey],
-        flatShading: true,
+        // Curved lofted surfaces must shade smoothly or the loft is wasted;
+        // chunky fittings keep the faceted look the rest of the world uses.
+        flatShading: !(f.smooth || opts.smooth),
         wireframe: !!opts.wire,
         transparent: (opts.opacity ?? 1) < 1,
         opacity: opts.opacity ?? 1,
-      }));
+        // Without a clearcoat lobe the surface reads duller, so drop roughness
+        // to recover some of the sheen the fallback loses.
+        roughness: (opts.roughness ?? f.roughness)
+          * (f.cls === 'physical' && IS_MOBILE ? 0.7 : 1),
+        metalness: opts.metalness ?? f.metalness,
+      };
+      const m = f.cls === 'physical' && !IS_MOBILE
+        ? new THREE.MeshPhysicalMaterial({
+          ...common,
+          clearcoat: f.clearcoat ?? 0,
+          clearcoatRoughness: f.clearcoatRoughness ?? 0.1,
+        })
+        : new THREE.MeshStandardMaterial(common);
+      // Thin panels shadow-acne badly from the inside; sampling the back face
+      // for shadows is the standard fix and costs nothing.
+      m.shadowSide = THREE.BackSide;
+      // Open boats are a single lofted skin with no lid, so you look straight
+      // into the hull from the chase camera. Those interior faces have to draw.
+      if (opts.doubleSided) m.side = THREE.DoubleSide;
+      materials.set(key, m);
     }
     return materials.get(key);
   };
@@ -86,9 +147,18 @@ export function buildVessel(THREE, vessel, { castShadow = true } = {}) {
     if (opts.group) (groups[opts.group] ||= []).push(mesh);
   }
 
+  // Helm eye point for the first-person view. Parented inside the rig so it
+  // inherits the catalog->physics rescale — reading the raw catalog coordinate
+  // would be wrong by the wrap scale factor.
+  const eye = new THREE.Object3D();
+  eye.position.fromArray(vessel.helm || [0, 1.0, 0.4]);
+  eye.name = 'helm';
+  group.add(eye);
+
   return {
     vessel,
     group,
+    eye,
     meshes,
     spinners,
     landOnly,
@@ -145,6 +215,14 @@ export function updateVessel(rig, dt, { throttle = 0, onLand = false } = {}) {
       g.rotation.x = -0.14 * t;
       break;
     }
+    case 'wheel_deploy': {
+      // The wheels themselves need nothing here — Vessel.updateVisual already
+      // drives their unfold (pivot scale from `deploy`), suspension travel,
+      // steering and spin. This is only the hull settling onto them.
+      g.position.y = -0.07 * t;
+      g.rotation.x = -0.045 * t;
+      break;
+    }
     case 'just_keep_going': {
       g.position.y = s.onLand ? Math.sin(s.spinPhase * lm.motion.bounceHz * 6.28) * lm.motion.bounceAmpl : 0;
       break;
@@ -167,6 +245,11 @@ export function updateVessel(rig, dt, { throttle = 0, onLand = false } = {}) {
       const gait = Math.sin(s.spinPhase * (6.28 / lm.motion.gaitPeriod));
       g.position.y = 0.85 * t + (s.onLand ? Math.abs(gait) * 0.05 : 0);
       g.rotation.z = s.onLand ? gait * (lm.motion.bodySwayDeg * Math.PI / 180) * t : 0;
+      break;
+    }
+    case 'beach_skid': {
+      g.position.y = -0.05 * t;
+      g.rotation.z = s.onLand ? Math.sin(s.spinPhase * 2.2) * 0.04 * t : 0;
       break;
     }
     case 'slip_n_slide': {

@@ -52,6 +52,8 @@ export const VESSELS = [
       [1.35, -0.35, -2.05, false, true],
       [-1.35, -0.35, -2.05, false, true],
     ],
+    // Trailer-style running gear folds out of the topsides when it beaches.
+    landWheels: { radius: 0.80, width: 0.34, rim: '#f2c94c' },
     boost: { mult: 3.4, drain: 0.30, refill: 0.24 },
     weapon: {
       type: 'forward', damage: 14, speed: 145, cooldown: 0.22,
@@ -94,6 +96,8 @@ export const VESSELS = [
       [3.0, -0.85, -3.8, false, true],
       [-3.0, -0.85, -3.8, false, true],
     ],
+    // The bruiser gets bruiser tyres — deliberately oversized for the read.
+    landWheels: { radius: 1.30, width: 0.72, rim: '#b48ee8', tyre: '#101319' },
     boost: { mult: 2.6, drain: 0.26, refill: 0.22 },
     weapon: {
       type: 'broadside', damage: 46, speed: 105, cooldown: 0.85,
@@ -188,6 +192,81 @@ export const VESSELS = [
       turret: { y: 1.5, barrelLen: 4.2 },
     },
     fx: { sprayScale: 2.0, wakeScale: 2.0 },
+  },
+
+  // ── 5 · SEAPLANE ──────────────────────────────────────────
+  // The only hull with a `fly` block, which is what switches the aerodynamic
+  // model on in Vessel._updateFlight. It is an ordinary (if slippery) boat
+  // until airspeed builds enough lift to unstick it.
+  {
+    key: 'seaplane',
+    catalog: 'seaplane',
+    name: 'Osprey',
+    blurb: 'High-wing floatplane. Hold W down the channel until the wing bites, then keep holding it to climb. W/S pitch, A/D roll, Shift for power.',
+    stats: { speed: 0.92, mass: 0.18, guns: 0.3, grip: 0.3 },
+    color: '#e8e4d9',
+    accent: '#ff5f6d',
+    neon: '#7fd4d4',
+
+    hull: { hx: 1.4, hy: 0.62, hz: 3.3 },
+    density: 42,          // ≈ 1.0 t — light, as an aeroplane must be
+    ballast: null,
+
+    buoyancy: { strength: 2.20, vertDamp: 3.4 },
+    // `air` is zeroed because _updateFlight computes real aerodynamic drag;
+    // leaving the generic term on would double-count it.
+    drag: { fwd: 0.0068, lat: 0.30, vert: 0.55, roll: 6.0, yaw: 0.9, air: 0 },
+
+    helm: { rate: 4.0, centre: 5.2 },
+    water: {
+      thrust: 22, reverse: 0.35, sternZ: -2.6,
+      rudder: 0.07, turnRate: 0.70, yawServo: 3.0, heel: 0.12, heelServo: 5.0,
+      // `settle` sucks a fast hull down onto the water. That is exactly what a
+      // seaplane must NOT do, so it is nearly off here — otherwise the takeoff
+      // run just gets faster and never breaks free.
+      settle: 0.8, weathervane: 1.2,
+    },
+    land: {
+      engine: 12, reverse: 0.40, maxSteer: 0.45, grip: 0.22,
+      turnRate: 1.10, yawServo: 2.4,
+      // Deliberately stubby: the raycast reach is rest + radius, and a long one
+      // let the "wheels" find the bank from several metres up, flipping the
+      // aeroplane into LAND mode while it was genuinely flying.
+      stiffness: 30, damping: 3.4, rest: 0.45, radius: 0.35, brake: 0.10, rollCentre: 0.35,
+    },
+    wheels: [
+      [1.20, -0.42, 2.10, true, false],
+      [-1.20, -0.42, 2.10, true, false],
+      [1.20, -0.42, -2.10, false, true],
+      [-1.20, -0.42, -2.10, false, true],
+    ],
+
+    /**
+     * Aerodynamics. `rho` folds air density and wing area into one number:
+     * lift = 0.5·rho·v²·Cl·mass, so level flight needs 0.5·rho·v²·Cl ≈ 24
+     * (that being |GRAVITY|). At Cl ≈ 1.35 near the stall that puts unstick
+     * at roughly 100 km/h, and cruise Cl ≈ 0.43 at 180 km/h.
+     */
+    fly: {
+      rho: 0.045, cl0: 0.10, clAlpha: 4.4, clMax: 1.35, stallAlpha: 0.34,
+      cd0: 0.022, k: 0.055, sideCd: 0.07,
+      thrust: 4.6, authCap: 90, authFloor: 16, stallPitchDown: 2.4,
+      // These two set the TRIMMED angle of attack at full elevator:
+      // alpha_trim = pitchAuth / pitchStab. It has to stay comfortably under
+      // stallAlpha (0.34) or holding W simply stalls the aeroplane — at 0.20 /
+      // 0.30 it trimmed to 0.67 rad and stood the thing on its tail.
+      // 0.11 / 0.55 trims to 0.20 rad ≈ 11°, a healthy climb.
+      pitchAuth: 0.11, pitchStab: 0.55,
+      rollAuth: 0.36,
+      yawStab: 0.26, turnCoord: 0.30, yawDamp: 2.2, rateDamp: 1.5,
+    },
+
+    boost: { mult: 2.2, drain: 0.20, refill: 0.22 },
+    weapon: {
+      type: 'forward', damage: 12, speed: 165, cooldown: 0.20,
+      radius: 7, power: 130, ballRadius: 0.26, ballDensity: 10,
+    },
+    fx: { sprayScale: 1.4, wakeScale: 1.2 },
   },
 ];
 

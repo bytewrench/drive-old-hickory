@@ -16,8 +16,10 @@
 // ──────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
+import { LAYER_HULL } from '../config.js';
 import { getVessel } from './vesselCatalog.js';
 import { buildVessel as buildCatalog, updateVessel as updateCatalog } from './buildVessel.js';
+import { attachExternalModel } from './modelLoader.js';
 
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 12);
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -41,6 +43,54 @@ function part(geo, material, pos, scale, rot) {
   m.castShadow = true;
   m.receiveShadow = true;
   return m;
+}
+
+/**
+ * One road wheel: tyre, rim, spokes and the suspension arm that carries it.
+ *
+ * The wheel spins via `spin.rotation.x`, so every piece is built with its axle
+ * along X. The arm goes in the non-spinning pivot — a strut that rotated with
+ * the wheel would look absurd.
+ */
+function buildRoadWheel(THREE, spec, cfg, pivot, spin, owned, side) {
+  const r = spec.radius ?? cfg.land?.radius ?? 0.85;
+  const w = spec.width ?? r * 0.44;
+
+  const tyre = mat(spec.tyre ?? '#15181f', { roughness: 0.95, metalness: 0 });
+  const rim = mat(spec.rim ?? cfg.accent, { roughness: 0.32, metalness: 0.85 });
+  const armM = mat(spec.arm ?? '#2a2f3c', { roughness: 0.5, metalness: 0.6 });
+  owned.push(tyre, rim, armM);
+
+  // Torus lies in XY with its axis on Z; a quarter turn about Y stands it up
+  // as a wheel. Outer radius = ring + tube, so solve back from `r`.
+  const t = new THREE.Mesh(new THREE.TorusGeometry(r * 0.72, r * 0.28, 12, 24), tyre);
+  t.rotation.y = Math.PI / 2;
+  t.castShadow = true; t.receiveShadow = true;
+  spin.add(t);
+
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.46, r * 0.46, w, 14), rim);
+  hub.rotation.z = Math.PI / 2;
+  hub.castShadow = true;
+  spin.add(hub);
+
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const sp = new THREE.Mesh(BOX, rim);
+    sp.scale.set(w * 0.55, r * 0.86, r * 0.16);
+    sp.position.set(0, 0, 0);
+    sp.rotation.x = a;
+    sp.castShadow = true;
+    spin.add(sp);
+  }
+
+  // Trailing arm reaching back up into the hull, so the wheel reads as
+  // suspended rather than floating alongside the boat.
+  const arm = new THREE.Mesh(BOX, armM);
+  arm.scale.set(w * 0.5, r * 0.30, r * 1.5);
+  arm.position.set(-side * w * 0.75, r * 0.55, -r * 0.35);
+  arm.rotation.x = -0.5;
+  arm.castShadow = true;
+  pivot.add(arm);
 }
 
 export function buildVessel(cfg) {
@@ -78,8 +128,26 @@ export function buildVessel(cfg) {
 
   const result = {
     group, wrap, rig,
+    eye: rig.eye,
     wheels: [], turretYaw: null, turretPitch: null,
     neon, muzzleAnchors: [],
+  };
+
+  // An author-supplied glTF replaces the procedural hull when the catalog entry
+  // names one. Loading is async, so the procedural model stays up until the file
+  // arrives and is then swapped out — the game never blocks on the network.
+  if (vessel.model?.url) {
+    attachExternalModel(THREE, wrap, vessel, result);
+  }
+
+  /**
+   * Mark this as the player's own boat. Hull meshes move to LAYER_HULL, which
+   * first-person masks off the main camera. They stay on the shadow camera's
+   * layer mask, so the boat keeps casting a shadow you can see from the helm.
+   */
+  result.setLocal = (isLocal) => {
+    result.isLocal = isLocal;
+    wrap.traverse((o) => { if (o.isMesh) o.layers.set(isLocal ? LAYER_HULL : 0); });
   };
 
   // ── 2 · weapon nodes the controller / weapon system need ────
@@ -131,7 +199,14 @@ export function buildVessel(cfg) {
     result.muzzleAnchors.push(anchor);
   }
 
-  // ── 3 · invisible wheel pivots (no visible wheels, by design) ──
+  // ── 3 · road wheels ────────────────────────────────────────
+  // Hulls that opt in via cfg.landWheels grow real running gear when they
+  // beach. Nothing extra has to be animated: Vessel.updateVisual already
+  // drives pivot.scale from `this.deploy` (so the wheels unfold over the
+  // deploy window), pivot.position.y from suspension travel, pivot.rotation.y
+  // from steering and spin.rotation.x from wheel speed. Hulls without the
+  // field keep bare pivots and their boat-idiom land gimmick instead.
+  const spec = cfg.landWheels;
   for (const [wx, wy, wz] of cfg.wheels) {
     const pivot = new THREE.Object3D();
     pivot.position.set(wx, wy, wz);
@@ -139,6 +214,7 @@ export function buildVessel(cfg) {
     group.add(pivot);
     const spin = new THREE.Object3D();
     pivot.add(spin);
+    if (spec) buildRoadWheel(THREE, spec, cfg, pivot, spin, owned, Math.sign(wx) || 1);
     result.wheels.push({ pivot, spin, base: new THREE.Vector3(wx, wy, wz) });
   }
 

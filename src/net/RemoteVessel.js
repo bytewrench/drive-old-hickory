@@ -92,6 +92,7 @@ export class RemoteVessel {
     this.dead = (s.flags & FLAG.DEAD) !== 0;
     this.boosting = (s.flags & FLAG.BOOSTING) !== 0;
     this.onLand = (s.flags & FLAG.ONLAND) !== 0;
+    this.flying = (s.flags & FLAG.FLYING) !== 0;
     this.turretYaw = s.turretYaw;
     this.turretPitch = s.turretPitch;
 

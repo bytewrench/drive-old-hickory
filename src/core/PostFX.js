@@ -70,17 +70,32 @@ const TiltShiftShader = {
   `,
 };
 
+/** Phones get no MSAA and a cheaper tilt-shift; desktops get 4x. */
+const IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 export class PostFX {
   constructor(renderer, scene, camera) {
     this.renderer = renderer;
 
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-    this.composer = new EffectComposer(renderer);
-    this.composer.setSize(size.x, size.y);
+
+    // EffectComposer's default target is built WITHOUT `samples`, which silently
+    // defeats the renderer's `antialias: true` — that flag only ever applied to
+    // the default framebuffer, and every pixel goes through the composer instead.
+    // Supplying our own multisampled target is what actually turns AA on.
+    const target = new THREE.WebGLRenderTarget(size.x, size.y, {
+      type: THREE.HalfFloatType,
+      samples: IS_MOBILE ? 0 : 4,
+    });
+    this.composer = new EffectComposer(renderer, target);
 
     this.composer.addPass(new RenderPass(scene, camera));
 
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.34, 0.75, 0.72);
+    // Threshold is measured against LINEAR HDR luminance, before ACES compresses
+    // it in OutputPass. Sunlit diffuse routinely exceeds 0.72 under a 2.7-intensity
+    // sun, so the old value bloomed ordinary surfaces into mush; 0.85 keeps the
+    // glow on genuinely hot pixels (emissives, speculars, the night neon).
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.34, 0.85, 0.85);
     this.composer.addPass(this.bloom);
 
     this.tiltH = new ShaderPass(TiltShiftShader);
@@ -99,12 +114,14 @@ export class PostFX {
   }
 
   setSize(w, h) {
+    // composer.setSize already multiplies by pixel ratio and forwards the
+    // device-pixel size to every pass, bloom included. Calling bloom.setSize(w, h)
+    // afterwards with CSS pixels re-sized the whole bloom mip chain back down to
+    // half resolution on a DPR-2 display, which is why day glow looked chunky.
     this.composer.setSize(w, h);
     const dpr = this.renderer.getPixelRatio();
-    const res = new THREE.Vector2(w * dpr, h * dpr);
-    this.tiltH.uniforms.uResolution.value.copy(res);
-    this.tiltV.uniforms.uResolution.value.copy(res);
-    this.bloom.setSize(w, h);
+    this.tiltH.uniforms.uResolution.value.set(w * dpr, h * dpr);
+    this.tiltV.uniforms.uResolution.value.set(w * dpr, h * dpr);
   }
 
   /** Boost pulls focus wide so the whole frame sharpens up as you accelerate. */

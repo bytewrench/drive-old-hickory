@@ -43,6 +43,14 @@ export const WEATHER = [
   { id: 'drought',  name: 'Low Water', icon: '🌵', depth: -0.75, fog: 0.75, deep: '#1c7290' },
 ];
 
+/**
+ * Render layer for the LOCAL vessel's hull meshes. First-person masks this layer
+ * off the main camera while the shadow camera keeps it enabled, so the boat
+ * disappears from view but still casts its shadow. Lives here rather than in
+ * Engine.js so vehicle code can import it without pulling in the renderer.
+ */
+export const LAYER_HULL = 1;
+
 export const GRAVITY = -24;
 
 /** Fixed physics timestep. All vehicle force tuning assumes this rate. */

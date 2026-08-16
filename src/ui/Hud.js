@@ -145,8 +145,11 @@ export class Hud {
     this.speedEl.textContent = Math.round(this.displaySpeed);
 
     const mode = vessel.mode;
-    this.modeEl.textContent = mode === 'water' ? '◈ WATER MODE' : mode === 'land' ? '▲ ATV MODE' : '✦ AIRBORNE';
-    this.modeEl.className = mode === 'land' ? 'land' : mode === 'air' ? 'air' : '';
+    this.modeEl.textContent = mode === 'water' ? '◈ WATER MODE'
+      : mode === 'land' ? '▲ ATV MODE'
+        : mode === 'fly' ? '✈ FLYING'
+          : '✦ AIRBORNE';
+    this.modeEl.className = mode === 'land' ? 'land' : mode === 'air' ? 'air' : mode === 'fly' ? 'fly' : '';
 
     this.boostEl.style.transform = `scaleX(${vessel.boostFuel})`;
     this.boostWrap.classList.toggle('empty', vessel.boostFuel < 0.05);

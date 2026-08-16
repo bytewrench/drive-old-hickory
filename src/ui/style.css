@@ -96,6 +96,16 @@ h1 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* A fifth vessel pushed the card stack past the viewport on a phone, and
+     with the default `overflow: visible` the LAUNCH button ended up ~290 px
+     below the fold with no way to scroll to it. `safe center` keeps the
+     centring when everything fits but degrades to top-aligned instead of
+     clipping the top when it doesn't — browsers that don't know the keyword
+     ignore this line and keep the plain `center` above. */
+  justify-content: safe center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   gap: 18px;
   padding: 24px;
   background: linear-gradient(180deg, rgba(11, 16, 38, .55), rgba(11, 16, 38, .88));
@@ -490,7 +500,19 @@ body.touch-mode #touch-hint {
 
 @media (max-width: 560px) {
   h1 { font-size: 34px; }
-  .vcard { width: 90vw; }
+  /* Two-up rather than one-up: five full-width cards made the garage 1155 px
+     tall on a 812 px screen. Paired with the trimmed blurb below this brings
+     the whole roster and the LAUNCH button back within reach. */
+  .vcard { width: 45vw; padding: 12px 11px 11px; }
+  .vcard .vn { margin-top: 6px; font-size: 15px; }
+  .vcard .vd {
+    margin-top: 4px; font-size: 11px; line-height: 1.32;
+    min-height: 0; max-height: 3.96em; overflow: hidden;
+  }
+  .vcard .stat { margin-top: 4px; font-size: 9px; }
+  .vcard .stat span { width: 38px; }
+  #garage { gap: 12px; padding: 18px 12px; }
+  #garage-cards { gap: 10px; }
   .controls-grid { display: none; }                     /* touch hint covers it */
   #vessel-strip { flex-wrap: wrap; justify-content: center; max-width: 62vw; }
   #hud-topright { top: 14px; right: 16px; }

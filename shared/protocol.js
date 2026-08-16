@@ -57,6 +57,7 @@ export const FLAG = {
   BOOSTING: 1,
   ONLAND: 2,
   DEAD: 4,
+  FLYING: 8,
 };
 
 // ── snapshot packing ──────────────────────────────────────────

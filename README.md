@@ -1,13 +1,15 @@
 # Drive Old Hickory
 
 A full-screen 3D physics sandbox on **the real Cumberland River**, centred on
-the Hunters Point Access Area in Wilson County, Tennessee. Four vessels,
-buoyant hulls that turn into off-road ATVs the moment you hit a bank, working
-lock gates, spillway ramps, cannons, and about a thousand destructible props.
+the Hunters Point Access Area in Wilson County, Tennessee. Five craft — four
+boats and a floatplane — buoyant hulls that turn into off-road vehicles the
+moment you hit a bank, working lock gates, spillway ramps, cannons, and about a
+thousand destructible props. Drive from the chase camera or from the helm.
 
 Built with **Vite + Three.js + Rapier3D (WASM)**. No paid APIs and no art
 assets — vessels, props and audio are generated in code at boot; the waterway
-itself is baked from OpenStreetMap.
+itself is baked from OpenStreetMap. Hulls are **lofted parametric surfaces**,
+not boxes: see [Hull geometry](#hull-geometry).
 
 ## The waterway is real
 
@@ -106,7 +108,7 @@ its own trigger, never the navigation pointer**.
   auto-steers and throttles there.
 - **Drag & release** — pull away from the boat to draw a slingshot, release to
   fling it the opposite way with a nitro burst (power = pull length).
-- **SPACE** fires the cannon. The mouse also aims the Dreadnought's turret.
+- **SPACE** fires the cannon. The mouse also aims the Skimmer's turret.
 - **W A S D** still work any time — pressing them hands control straight back
   to the keyboard. **Shift** = nitro.
 
@@ -130,25 +132,135 @@ comfort. The vessels are hard to flip and self-right within ~1 s after a flub.
 | --- | --- |
 | `W A S D` / arrows | Throttle · steer · reverse |
 | `Shift` | Mega-nitro boost |
-| Mouse | Aim the turret (Dreadnought) |
+| Mouse | Aim the turret (Skimmer) |
 | Left click / `Space` | Fire |
-| `1` – `4` | Swap vessel instantly, in place |
+| `1` – `5` | Swap vessel instantly, in place |
 | `R` | Reset to Hunters Point Boat Dock (also repairs the hull) |
 | `T` | Sunny morning ⇄ synthwave night — shared with the room |
 | `C` | Cycle camera distance |
+| `V` | Chase view ⇄ **helm (first person)** |
 | `X` | Handbrake (kills grip — drift on land) |
 | `M` | Mute |
 
 ---
 
-## The four vessels
+## The five craft
 
-| # | Vessel | Mass | Weapon | Helm → 90% turn | Character |
+| # | Vessel | Mass | Weapon | Ashore | Character |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Speedboat | 1.3 t | Light forward gun | 1.2 s | Fastest, 175 km/h down the river |
-| 2 | Battle Barge | 91 t | Dual broadside cannons | 3.8 s | Ruinous plow force, answers like a continent |
-| 3 | Hover-Cruiser | 1.6 t | Light forward gun | 4.4 s | Rides pads over water *and* land, skates |
-| 4 | Dreadnought | 32 t | 360° mouse-aimed turret | 3.3 s | 26 m blast radius, heavy and deliberate |
+| 1 | Bowrider | 1.3 t | Light forward gun | **Trailer gear** — four wheels swing down | Fastest boat, 175 km/h down the river |
+| 2 | Bollard | 91 t | Dual broadside cannons | **Dozer gear** — oversized tyres | Ruinous plow force, answers like a continent |
+| 3 | Fanjack | 1.6 t | Light forward gun | Just keeps going — flat pan, no gear | Rides pads over water *and* land, skates |
+| 4 | Skimmer | 32 t | 360° mouse-aimed turret | Stilt walk — the foils become legs | 26 m blast radius, heavy and deliberate |
+| 5 | **Osprey** | 1.0 t | Nose gun | Beach skid — it has no undercarriage | **Flies.** Takes off at ~145 km/h |
+
+Land traversal is deliberately **per-vessel**: two hulls grow real running
+gear, three cope with the shore in their own idiom, and the aeroplane's answer
+to being on land is to stop being on land.
+
+### The Osprey actually flies
+
+It is not a boat with an "up" button. `Vessel._updateFlight` is a real (if
+simplified) fixed-wing model — lift from angle of attack with a stall break,
+induced plus parasitic drag, sideslip resistance, and control surfaces whose
+authority scales with dynamic pressure, so the controls go slack at low
+airspeed and a stall drops the nose on its own.
+
+There is no separate "take off" action. It is an ordinary boat on the step,
+accelerating under normal hull thrust while lift builds with airspeed, and it
+leaves the water at the moment lift exceeds weight. `water.settle` — the term
+that sucks a fast hull down onto the surface — is turned nearly off for this
+hull alone, because that force is precisely what would keep it from unsticking.
+
+Airborne, the controls change meaning:
+
+| Input | On the water | Flying |
+| --- | --- | --- |
+| `W` / `S` | Thrust / reverse | **Elevator** — nose up / nose down |
+| `A` / `D` | Rudder | **Ailerons** — roll, with coordinated yaw |
+| `Shift` | Nitro | Throttle boost |
+
+Two details make it fly nicely rather than merely fly. The **trimmed angle of
+attack is `pitchAuth / pitchStab`**, which has to stay under `stallAlpha` or
+holding `W` simply stalls the aeroplane — at 0.20/0.30 it trimmed to 0.67 rad
+and stood the thing on its tail. And control authority carries an
+**`authFloor`**, because authority proportional to dynamic pressure alone
+collapses toward zero exactly when the craft is slow and nose-high, which is
+the one moment it most needs to get its nose down.
+
+Held at full elevator it will still zoom-climb to ~60 m, stall, and recover —
+that is correct, and it is how you learn to fly it. Eased back to about a third
+it cruises at 177 km/h, climbs to 50 m, and holds an 86° banked turn.
+
+## Helm view
+
+`V` (or the 📷 button on touch, which now walks all four states) drops you to
+the wheel. Each vessel declares a `helm` eye point in the catalog, built as an
+`Object3D` **inside** the rig so it inherits the catalog→physics rescale — a
+raw catalog coordinate would be wrong by the wrap scale factor.
+
+Hiding your own hull is the interesting part. `visible = false` would take the
+boat's shadow with it, so the local hull's meshes are moved to `LAYER_HULL`
+instead: first-person masks that layer off the main camera while the shadow
+camera keeps it enabled. You see the world from the wheel, and your own shadow
+still runs alongside you on the water.
+
+Full hull attitude is nauseating on a wave train and a yaw-only lock feels
+detached from the boat, so the view blends **55% of the real pitch and roll**.
+
+## Look and feel
+
+Five fixes, in rough order of how much each one moved the picture.
+
+**Anti-aliasing was silently off.** The renderer is created with
+`antialias: true`, but that flag only ever applies to the default framebuffer —
+and every pixel goes through an `EffectComposer` instead, whose default render
+target is built *without* `samples`. Supplying an explicitly multisampled
+target is what actually turns AA on. Every low-poly silhouette in the game was
+jagged for want of one argument.
+
+**There was no environment map.** `scene.environment` was never assigned, so
+every `metalness > 0` surface in the game had nothing to reflect and resolved
+to flat grey — `MeshStandardMaterial` is a PBR model whose specular lobe is
+meaningless without an environment. Rather than ship an HDRI, the engine PMREMs
+a miniature stand-in scene that mirrors the sky gradient and ground tone, so
+reflections always agree with the sky the player can actually see. It is
+re-baked in 8 steps across a day/night transition, which is indistinguishable
+from continuous and vastly cheaper than per-frame.
+
+**A long lens, and speed dollies instead of zooming.** The chase camera moved
+from a 48° FOV that blew out to 76° under boost, to a fixed 34° that pulls the
+camera *back* with speed. A long lens flattens perspective so the world reads
+as a built model rather than a wide-angle demo; the old FOV punch distorted the
+whole frame and undid it. Chase distances were scaled by tan(24°)/tan(17°) ≈
+1.46 so the subject framing is unchanged. Impacts now kick a **roll spring** —
+a damped oscillator that tilts the horizon, which reads far better than
+positional shake because that is what an impact actually does to your view.
+
+**Shadows were detached from their objects.** The frustum was a fixed ±150 m at
+2048², i.e. 0.146 m per texel, which forced a `normalBias` of 0.6 — about four
+texels — and every contact shadow floated free of its caster. Fitting the
+frustum to what the camera can see (and biasing it forward of the boat, since
+half the budget was being spent behind the player) tightened it to ~0.054 m per
+texel and let the bias drop to 0.045.
+
+**The depth buffer was spent on empty space.** The sky dome was map-sized —
+radius 53 km — which forced the far plane to 123,200 against a near of 0.5, a
+246,400:1 ratio, for a scene that fog makes fully opaque past about 2 km. The
+dome follows the player, so it only has to out-range the fog: at 7 km, with a
+9 km far plane, depth resolution improves roughly 27×.
+
+Two smaller ones: bloom was being re-sized to CSS pixels *after* the composer
+had already applied device pixel ratio, halving its mip chain on a retina
+display; and the star field's `gl_PointSize` never accounted for DPR, drawing
+every star at half its intended size.
+
+**On phones** the whole stack steps down — MSAA off, clearcoat materials fall
+back to standard with a compensating roughness drop (clearcoat is a genuinely
+expensive shader on mobile GPUs and a vessel can carry a dozen), and hull lofts
+drop to 60% resolution. The silhouette is the point of lofting, and it survives
+the reduction; only the shading facets get chunkier, which suits the art
+direction anyway.
 
 ## Handling: boats, not cars
 
@@ -193,9 +305,13 @@ src/
 │   ├── Structures.js        bridges, dam + spillway, ramps, lock gates
 │   └── Props.js             ~1,040 destructible props in instanced meshes
 ├── vehicles/
-│   ├── vesselConfigs.js     all four vessels as pure data
-│   ├── Vessel.js            buoyancy + hydrodynamics + raycast suspension
-│   └── VesselMesh.js        procedural low-poly hulls, wheels, turret
+│   ├── vesselConfigs.js     all five craft as pure data (physics + tuning)
+│   ├── vesselCatalog.js     the *look*: parts, palettes, helm points
+│   ├── hullGeometry.js      lofted hulls, aerofoils, propellers
+│   ├── buildVessel.js       catalog → THREE.Group, PBR finishes, land modes
+│   ├── modelLoader.js       optional author-supplied glTF slot
+│   ├── Vessel.js            buoyancy + hydrodynamics + suspension + flight
+│   └── VesselMesh.js        rig wrapper, road wheels, turret, muzzle anchors
 ├── gameplay/
 │   ├── Weapons.js           CCD cannonballs, detonation
 │   └── Destruction.js       damage, debris pool, blast falloff, combos
@@ -284,6 +400,46 @@ toward each bank, so they mark navigable water rather than decorating it.
 collider and compares against `sampleHeight`. Current max error **0.12 m**
 (the heightfield's own discretisation). If a future Rapier build changes the
 row/column convention, the check catches it and transposes.
+
+### Hull geometry
+
+Hulls used to be a `BoxGeometry` with a triangular prism stuck on the bow. That
+can never read as a boat, because everything that makes a hull recognisable is
+a curve a box has no way to express. `hullGeometry.js` lofts them instead —
+stations along Z, each a cross-section swept keel to sheer, skinned into one
+surface and capped at the transom and deck:
+
+| Parameter | What it is |
+| --- | --- |
+| `sheer` | the deck edge sweeping up toward the bow |
+| `flare` | topsides widening above the waterline to throw spray |
+| `sectionAft` / `sectionFwd` | superellipse exponent — **1.3 = fine V, 2 = round bilge, 6 = hard chine** |
+| `rocker` | the keel lifting at the forefoot so the stem clears the water |
+| `entry` | how finely the waterline tapers to the stem |
+
+Interpolating the section exponent bow-to-stern is what gives a planing hull
+its "sharp forward, flat aft" character in one continuous surface. It is also
+what separates the craft: the tug is a round bilge (2.4 → 1.85), the runabout
+is hard-chined aft and fine forward (5.5 → 1.30), the airboat is a flat pan
+throughout (8.0 → 4.2), and the Skimmer's needle hulls run 2.6 → 1.15.
+
+`makeFoil` builds symmetric aerofoil sections for foils, wings, fins and
+rudders — the hydrofoil's wings were 0.10 m rectangular slabs — and `makeProp`
+builds twisted, tapered blades in place of the flat cylinder disc that used to
+stand in for a screw.
+
+Lofted parts shade smoothly; fittings stay flat-shaded, so the chunky look
+survives where it belongs. Materials are PBR by named `finish` — `gloss` is a
+clearcoat over colour, which is exactly what a moulded GRP hull is.
+
+**Bringing your own model.** Give a catalog entry `model: { url: '/my-boat.glb' }`
+and that glTF is used for the visual while physics, weapons, land modes and the
+helm anchor keep working off the same catalog data. Loading is async and
+non-blocking: the procedural hull renders immediately and is swapped out only
+once the file arrives, so a missing asset degrades to the built-in model rather
+than an empty river. Author it +Z forward, Y up, origin on the waterline; it is
+auto-fitted to the physics hull length. Plain `.glb` only — no Draco or Meshopt,
+since neither decoder is bundled.
 
 ### Surface transformation
 
@@ -388,7 +544,9 @@ __game.destruction.explode({ x: 0, y: 2, z: 100 }, 40, 900, 2);
 mesh to 0.22 m (heightfield cell size).
 
 **Forgiveness** — an autopilot follows the real river at full throttle for
-4+ km per vessel:
+4+ km per vessel. *These runs predate the hull-geometry and flight work and use
+the older vessel names; they have not been re-measured, and the Osprey is not
+covered:*
 
 | Vessel | km run | top km/h | grounded | capsized | airborne | peak heel |
 | --- | --- | --- | --- | --- | --- | --- |

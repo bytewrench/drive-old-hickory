@@ -183,7 +183,8 @@ export class Multiplayer {
     s.hp = Math.max(0, Math.round((v.health / v.maxHealth) * 100));
     s.flags = (v.boosting ? FLAG.BOOSTING : 0)
       | (v.mode === 'land' ? FLAG.ONLAND : 0)
-      | (v.dead ? FLAG.DEAD : 0);
+      | (v.dead ? FLAG.DEAD : 0)
+      | (v.mode === 'fly' ? FLAG.FLYING : 0);
 
     this.net.sendState(s);
   }
